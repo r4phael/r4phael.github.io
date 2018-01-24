@@ -4,9 +4,9 @@ You can use the [editor on GitHub](https://github.com/r4phael/r4phael.github.io/
 
 Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
 
-### Machine Learning Project
+### Machine Learning Project - Msc UFAL 2017.2
 
-You can use the [editor on GitHub](https://github.com/r4phael/r4phael.github.io/edit/master/index.md)
+Link to the Notebook [editor on GitHub](https://github.com/r4phael/r4phael.github.io/Notebooks/RNotebook_mlufal201702.nb.html)
 
 ### Support or Contact
 Jairo Souza
