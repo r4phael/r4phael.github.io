@@ -11,7 +11,7 @@ O Dataset contém metricas de software coletadas via [API Understand] (https://s
 - [Glibc](https://github.com/lattera/glibc) - The GNU C Library is the standard system C library for all GNU systems
 - [Httpd](https://github.com/apache/httpd) - Web Server
 - [Kernel](https://github.com/torvalds/linux) - Kernel Linux
-- [OpenVPN](https://github.com/mozilla/openvpn) - 
+- [OpenVPN](https://github.com/mozilla/openvpn) - Mozilla OpenVPN
 - [Xen](https://github.com/xen-project/xen) - Virtual Machine Monitor (VMM)
 
 Descrição do Dataset:
@@ -104,6 +104,8 @@ measures <- function(test, pred) {
 - RandomForest [Arvores de Decisão]
 - C50 [Arvore de Decisão]
 
+As funções abaixo realizam o treinamento (train) e testes do nosso modelo (model) de detecção de bugs baseados em Metricas de Software. Lembrando que o treinamento e testes são utilizadas as técnicas de K-fold cross validation com 10 folds e calculo da efetividade.
+
 ```{r}
 
 # Techiniques
@@ -190,7 +192,14 @@ executeC50 <- function(dataset, folds) {
 }
 ```
 
-###Feature Selection:
+###Seleção de Features:
+
+Aqui é realizada uma tarefa de classificação dos valores individuais de cada feature. Tais valores estão relacionados ao seu grau de importância de acordo com o método escolhido. Os Métodos escolhidos foram:
+
+- Chi Squared
+- Information Gain
+
+Através da Tabela abaixo é possiveis visualizar os valores de cada feature dentro do dataset:
 
 ```{r}
 features <- makeClassifTask(id = deparse(substitute(input_sample)), input_sample, colnames(input_sample)[28] )
@@ -198,7 +207,8 @@ featuresSelection = generateFilterValuesData(features, method = c("information.g
 featuresSelection$data
 ```
 
-Criando boxplots para cada tipo metodo de seleção:
+Abaixo é possivel avaliar a distribuição dos valores dos métodos de seleção de features utilizadas gerando seus respectivos bloxplots:
+
 ```{r}
 par(mfrow=c(1,2))
 for(i in 3:4) {
@@ -206,12 +216,13 @@ for(i in 3:4) {
 }
 ```
 
-Valores Individuais de Cada Feature:
+Essa distribuição também pode ser avaliada através de barplots, onde o eixo x corresponde as features utilizadas no dataset e o eixo y ao seu grau de importância respectivamente. Como pode ser visto as features AltCountLineCode e CountLineCode tiveram resultados melhores que as demais.
+
 ```{r}
 plotFilterValues(featuresSelection)
 ```
 
-Manter Todas as Features com um grau/valor de importância de 0.2
+Através da função generateFilterValuesData é possível manter somente as Features com um grau/valor de importância acima de 0.2 do método de Informação de Ganho. Esses valores podem ser filtrados por thresholds, percentuais e ranking.
 
 
 ```{r}
@@ -222,6 +233,14 @@ filtered
 
 
 ###Balanceamento dos Dados:
+
+Temos abaixo uma gráfico contendo a distribuição das classes do dois tipos de conjunto de dados.
+
+- Balanceado: Nesse conjunto o numero de classes são iguais, ou seja, temos as mesma quantidade de linhas de metricas de softwares de funções com bugs e sem bugs respectivamente.
+- Não Balanceado: Já no conjunto não balanceado, normalmente o comportamento é de ter menos bugs ems funções de código em C nos projetos utilizados.
+
+Este problema é predominante em cenários onde a detecção de anomalias é crucial, como transações fraudulentas nos bancos, identificação de doenças raras, etc. Nessa situação, o modelo preditivo desenvolvido com algoritmos de aprendizado convencional pode ser tendencioso e impreciso. 
+
 
 ```{r}
 input_balanced <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/balanced/glibc_data_balanced.csv", stringsAsFactors = FALSE)
@@ -234,20 +253,64 @@ barplot(table(input_unbalanced$Affected), main = "Unbalanced")
 
 ```
 
+Trecho responsável pela execução dos algoritmos de machine learning para os 5 projetos utilizando as técnicas supracitadas.
 
-###Resultados Alcançados:
+```{r}
+filenames = list.files(path = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/balanced",
+                       full.names = TRUE,
+                       recursive = TRUE)
+
+projects <- c("GlibC", "Httpd", "Kernel", "Mozilla", "Xen")
+setwd("/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/results/")
+
+#Create data frame:
+createDf()
+
+#Apply Results Balanced
+for (i in 1:length(filenames)) {
+  
+  cat("Writting ")
+  dataset <- read.csv(filenames[i])
+  #project <- strsplit(filenames, split = '/')[[i]][9]
+  folds <- createFolds(dataset[1:27], k = 10, returnTrain = TRUE)
+  
+  rows <- nrow(dataset)
+  cat(paste0("Input: ", rows, " rows in project... ", projects[i], "\n"))
+  
+  #Results C50
+  finalResults(executeC50(dataset, folds), projects[i], "C50")
+  #Results Bayes
+  finalResults(executeNaiveBayes(dataset, folds), projects[i], "NaiveBayes")
+  #Algorithm SVM
+  finalResults(executeSVM(dataset, folds), projects[i], "SVM")
+  #Jr48
+  finalResults(executeJ48(dataset, folds), projects[i], "Jr48")
+  #OneR
+  finalResults(executeOneR(dataset, folds), projects[i], "OneR")
+  #RandomForest
+  finalResults(executeRandomForest(dataset, folds), projects[i], "RandomForest")
+  
+}
+
+```
+
+
+
+###Resultados Alcançados
+
+####Tabelas:
 
 ```{r}
 resultsUnbal <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/results/ml_balanced.csv", stringsAsFactors = FALSE)
 resultsUnbal
 ```
 
-###Plots:
+####Plots:
 
 ```{r}
 ggplot(resultsUnbal) +
-  geom_bar(aes(x = Project, y = F.Measure, fill = Algorithm, group = Algorithm), position = "dodge", stat = "identity") +
-  geom_text( aes(x = Project, y = F.Measure, label = round(F.Measure,2), group = Algorithm),  
+  geom_bar(aes(x = Algorithm, y = F.Measure, fill = Project, group = Project), position = "dodge", stat = "identity") +
+  geom_text( aes(x = Algorithm, y = F.Measure, label = round(F.Measure,2), group = Project),  
              check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 2) + #scale_fill_grey() + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   theme(legend.position= c(0.85, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
@@ -257,3 +320,4 @@ ggplot(resultsUnbal) +
         plot.background = element_rect(fill = "transparent", colour = NA))
 ```
 
+Citar Literaruta (Revisão de Literatura)
