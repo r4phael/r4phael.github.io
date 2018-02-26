@@ -1,0 +1,138 @@
+---
+title: "Meeting 26-02-2018"
+autor: Jairo Souza
+output: html_notebook
+---
+
+
+
+```{r}
+
+#Files
+methods <-
+  read.csv(
+    "/home/r4ph/results/new/elasticsearch-hadoop/elasticsearch-hadoopall.csv",
+    stringsAsFactors = FALSE
+  )
+
+```
+### Changes Metrics With Method Rename Reffactoring
+
+###Constraints:
+
+* C1: Time series musthave a minimum number of peaks to be considered (median of length of ts)
+* C2: The time series of changes must not be constant.
+* C3: This constraint defines that the time series of changes must be stationary
+* C4: This constraint defines that the time series of bugs must be stationary.
+
+#####Previous Results:
+
+![](/home/r4ph/Desktop/Artigos Mestrado/imgs/table2.png)
+
+![](/home/r4ph/Desktop/Artigos Mestrado/imgs/table3.png)
+
+#####New Results:
+
+```{r}
+library(sqldf)
+library(dplyr)
+
+df <- sqldf(
+  "SELECT Project, SUM(Count) as TotalTimeSeries, 
+   SUM(CASE WHEN (P1 = 1)  THEN 1 ELSE 0 end) as 'C1',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) THEN 1 ELSE 0 end) as 'C1-C2',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) AND (P5 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C3',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) AND (P3 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C4',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) AND (P3 = 1) AND (P5 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C3-C4',
+   SUM(CASE WHEN (GrangerPos = 1) THEN 1 ELSE 0 end) as GrangerPos
+   FROM methods
+   GROUP BY Project"
+)
+
+df$Perc <- round ((df$GrangerPos/df$`C1-C2-C3-C4`) * 100, 2)
+
+df
+```
+
+
+
+```{r}
+library(dplyr)
+
+getPosGranger <- function (x) {
+  if (x <= 0.05 && x != -1) {
+    1
+  } else {
+    0
+  }
+}
+
+getSatisfiedTs <- function (x, measure) {
+  if (x >= measure) {
+    1
+  } else{
+    0
+  }
+}
+
+filenames=list.files(path= "/home/r4ph/R/software-history/results/software-metrics/", full.names=TRUE)
+
+sm <- do.call(rbind, lapply(filenames, function(i) {
+  read.csv(i, stringsAsFactors = FALSE)
+}))
+
+#Pos Grangers
+sm[, "GrangerPos"] <- 0
+sm$Granger[is.na(sm$Granger)] <- -1
+sm$GrangerPos <- mapply(getPosGranger, sm$Granger)
+
+sm[, "P1"] <- 0
+sm$P1 <- mapply(getSatisfiedTs, sm$lenghtTs, median(sm$lenghtTs))
+```
+
+###Analysis of Software Metrics:
+
+* This table show the methods with positive granger by metrics.
+
+```{r}
+sm %>%
+  group_by(Project, Metric) %>%
+  summarise(GrangerPos = sum(GrangerPos))
+```
+
+###Constraints:
+
+* C1: Time series musthave a minimum number of peaks to be considered (median of length of ts)
+* C2: The time series of changes must not be constant.
+* C3: This constraint defines that the time series of changes must be stationary
+* C4: This constraint defines that the time series of bugs must be stationary.
+
+* This table show the time series of projects along the constraints:
+
+```{r}
+sm[, "Count"] <- 1
+
+dfsm <- sqldf(
+  "SELECT Project, SUM(Count) as TotalTimeSeries, 
+   SUM(CASE WHEN (P1 = 1)  THEN 1 ELSE 0 end) as 'C1',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) THEN 1 ELSE 0 end) as 'C1-C2',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) AND (P5 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C3',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) AND (P3 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C4',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) AND (P3 = 1) AND (P5 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C3-C4',
+   SUM(CASE WHEN (P1 = 1) AND (P4 = 1) AND (P3 = 1) AND (P5 = 1) AND (GrangerPos = 1) THEN 1 ELSE 0 end) as 'C1-C4-Granger',
+   SUM(CASE WHEN (GrangerPos = 1) THEN 1 ELSE 0 end) as 'Only-Granger'
+   FROM sm
+   GROUP BY Project"
+)
+
+dfsm$`Perc-C1-C4-Granger` <- round ((dfsm$`C1-C4-Granger`/dfsm$`C1-C2-C3-C4`) * 100, 2)
+dfsm$`Perc-Only-Granger` <- round ((dfsm$`Only-Granger`/dfsm$TotalTimeSeries) * 100, 2)
+
+dfsm <- dfsm[c(1:8, 10, 9, 11)]
+
+dfsm
+```
+
+* Low percentage of positives cases in projects Presto and Fresco due larger amount of erro: "series cannot be merged with non-unique index entries in a series"
+* A small number of time series are stationary (C3-C4). The R functions that determine if a time series is stationary can be a threat? See the article: http://www.statosphere.com.au/check-time-series-stationary-r/
+* A larger amount of time series is Constant (C1)
