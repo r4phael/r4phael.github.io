@@ -8,9 +8,9 @@ Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://j
 
 Link to the [Notebook](notebooks/RNotebook_mlufal201702.nb.html)
 
-### Meeting 26-08-2012
+### Software History
 
-Link to the [Notebook](notebooks/RNotebook_change_metrics_new.nb.html)
+Link to the [Notebook](notebooks/RNotebook_software_history.nb.html)
 
 ### Support or Contact
 Jairo Souza

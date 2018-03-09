@@ -20,21 +20,20 @@ methods <-
 
 ###Constraints:
 
-* C1: Time series musthave a minimum number of peaks to be considered (median of length of ts)
+* C1: Time series must have a minimum number of peaks to be considered (median of length of ts)
 * C2: The time series of changes must not be constant.
 * C3: This constraint defines that the time series of changes must be stationary
 * C4: This constraint defines that the time series of bugs must be stationary.
 
 #####Previous Results:
 
-![](/home/r4ph/Desktop/Artigos Mestrado/imgs/table2.png)
+![](/home/r4ph/Dropbox/Mestrado/Artigos Mestrado/Articles/imgs/table2.png)
 
-![](/home/r4ph/Desktop/Artigos Mestrado/imgs/table3.png)
+![](/home/r4ph/Dropbox/Mestrado/Artigos Mestrado/Articles/imgs/table3.png)
 
 #####New Results:
 
 ```{r}
-library(sqldf)
 library(dplyr)
 
 df <- sqldf(
@@ -75,7 +74,7 @@ getSatisfiedTs <- function (x, measure) {
   }
 }
 
-filenames=list.files(path= "/home/r4ph/R/software-history/results/software-metrics/", full.names=TRUE)
+filenames=list.files(path= "/home/r4ph/R/analysis/software-metrics/", full.names=TRUE)
 
 sm <- do.call(rbind, lapply(filenames, function(i) {
   read.csv(i, stringsAsFactors = FALSE)
@@ -86,8 +85,12 @@ sm[, "GrangerPos"] <- 0
 sm$Granger[is.na(sm$Granger)] <- -1
 sm$GrangerPos <- mapply(getPosGranger, sm$Granger)
 
+projects <- unique(sm$Project)
+
 sm[, "P1"] <- 0
-sm$P1 <- mapply(getSatisfiedTs, sm$lenghtTs, median(sm$lenghtTs))
+for (i in 1:length(unique(sm$Project))){
+sm$P1 <- mapply(getSatisfiedTs, sm$lenghtTs, median(filter(sm, Project == sm$Project)$lenghtTs))
+
 ```
 
 ###Analysis of Software Metrics:
@@ -110,6 +113,8 @@ sm %>%
 * This table show the time series of projects along the constraints:
 
 ```{r}
+library(sqldf)
+
 sm[, "Count"] <- 1
 
 dfsm <- sqldf(
