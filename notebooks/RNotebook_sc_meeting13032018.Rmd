@@ -1,0 +1,575 @@
+---
+title: "On the Relation Between the History of Changes and Bugs"
+output:
+  html_notebook: default
+  html_document:
+    code_folding: hide
+---
+
+
+```{r message=FALSE, warning=FALSE, echo=FALSE, comment= FALSE}
+
+suppressWarnings(library(dplyr))
+suppressWarnings(library(stringr))
+suppressWarnings(library(sqldf))
+suppressWarnings(library(ggplot2))
+suppressWarnings(library(beanplot))
+suppressWarnings(library(vioplot))
+suppressWarnings(library(ggpubr))
+suppressWarnings(library(qcc))
+suppressWarnings(library(reshape))
+
+getTypeMethod <- function (x){
+  
+  splitRef <- strsplit(x, "\\.") #divide o nome do metodo pelo ponto
+  #splitRef
+  
+  for(d in splitRef){ 
+    r <- sub("[(].*", "", d) #remove os paramentros do metodo
+  }
+  #r #Nessa var tem os valores separados, só fazer um if e verificar se os dois ultimos são iguais, ai cai no caso do construtor 
+  
+  nomeMetodo <- sub(".*[.]", "", x) #seleciona o nome do metodo
+  nomeMetodoSemParam <- sub("[(].*", "", nomeMetodo) #remove os parametros
+  #nomeMetodoSemParam #só verificar se é igual a toString 
+  
+  getOuSet <- substring(nomeMetodoSemParam, 1, 3) #seleciona os 3 primeiros elementos do metodo
+  #getOuSet # só verificar se é um get ou set
+  
+  if (getOuSet == "set" || getOuSet == "get"){
+    return ("Getters/Setters")
+    
+  } else if (nomeMetodoSemParam == "toString"){
+    return ("toString")
+    
+  } else if (nomeMetodoSemParam == "hashCode"){
+    return ("hashCode")
+  
+  } else if (nomeMetodoSemParam == "equals"){
+    return ("equals")
+    
+  } else if (r[length(r)] == r[length(r)-1]){
+    return ("Constructor")
+  
+  } else {
+    return ("Normal")
+  }
+  
+}
+
+# implementing the function:
+ggpareto <- function(x, title) {
+  
+  #title <- deparse(substitute(x))
+  
+  x <- data.frame(modality = na.omit(x))
+  
+  Df <- x %>% group_by(modality) %>% summarise(frequency=n()) %>% 
+    arrange(desc(frequency))
+  
+  Df$modality <- ordered(Df$modality, levels = unlist(Df$modality, use.names = F))
+  
+  Df <- Df %>% mutate(modality_int = as.integer(modality), 
+                      cumfreq = cumsum(frequency), cumperc = cumfreq/nrow(x) * 100)
+  nr <- nrow(Df)
+  N <- sum(Df$frequency)
+  
+  Df_ticks <- data.frame(xtick0 = rep(nr +.55, 11), xtick1 = rep(nr +.59, 11), 
+                         ytick = seq(0, N, N/10))
+  
+  y2 <- c("  0%", " 10%", " 20%", " 30%", " 40%", " 50%", " 60%", " 70%", " 80%", " 90%", "100%")
+  
+  g <- ggplot(Df, aes(x=modality, y=frequency)) + 
+    geom_bar(stat="identity", aes(fill = modality_int)) +
+    geom_line(aes(x=modality_int, y = cumfreq, color = modality_int)) +
+    geom_point(aes(x=modality_int, y = cumfreq, color = modality_int), pch = 19) +
+    scale_y_continuous(breaks=seq(0, N, N/10), limits=c(-.02 * N, N * 1.02)) + 
+    scale_x_discrete(breaks = Df$modality) +
+    guides(fill = FALSE, color = FALSE) + 
+    annotate("rect", xmin = nr + .55, xmax = nr + 1, 
+             ymin = -.02 * N, ymax = N * 1.02, fill = "white") +
+    annotate("text", x = nr + .8, y = seq(0, N, N/10), label = y2, size = 3.5) +
+    geom_segment(x = nr + .55, xend = nr + .55, y = -.02 * N, yend = N * 1.02, color = "grey50") +
+    geom_segment(data = Df_ticks, aes(x = xtick0, y = ytick, xend = xtick1, yend = ytick)) +
+    labs(title = paste0("Pareto Chart of ", title), y = "Frequency of Methods With Bugs", x = "Metrics") +
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  
+  print(g)
+  
+  #return(list(graph = g, Df = Df[, c(3, 1, 2, 4, 5)]))
+  return (graph = g)
+}
+
+getSatisfiedTs <- function (x, measure) {
+  if (x >= measure) {
+    1
+  } else{
+    0
+  }
+}
+
+
+getStatsProcess <- function(x){
+  
+  medianHigher <- median1Sd <- median2Sd <- median3Sd <-  0
+  values <- as.integer(unlist(strsplit(x,",")))
+  
+  if (length(values) > 1) {
+    for(i in 1:length(values)){
+      if (values[i] > median(values)){
+        medianHigher <- medianHigher + 1
+      }
+      if (values[i] > (median(values) + sd(values))){
+        median1Sd <- median1Sd + 1
+      }
+      if (values[i] > (median(values) + 2*sd(values))){
+        median2Sd <- median2Sd + 1
+      }
+      if (values[i] > (median(values) + 3*sd(values))){
+        median3Sd <- median3Sd + 1
+      }
+    }
+  }
+  
+  #print(c(medianHigher, median1Sd, median2Sd, median3Sd))
+  return(c(medianHigher, median1Sd, median2Sd, median3Sd))
+}
+
+getTimesProcess <- function(x){
+  
+  values <- unique(as.POSIXlt(unlist(strsplit(x,","))))
+  
+  count1<<-count1+1
+  if (count1 %% 100000 == 0){
+    print(paste0("Method: ", count1))
+  }
+  
+  if (length(values) > 1){
+    
+    diffSec <- abs(as.integer(difftime(values[1] ,values[length(values)] , units = c("secs"))))
+    #quotient of division
+    if (length(values) > 5){
+      quarDiv <- diffSec %/% 4
+    } else{
+      quarDiv <- diffSec %/% length(values)
+    }
+    
+    frames <- c(0)
+    for (i in 1:4){
+      frames[i]<- tail(frames[1:(i-1)], n=1) + quarDiv
+    }
+    
+    frames <- c(0,frames)
+    values<- c(values[1], values)
+    quartiles <- c(0,0,0,0,0)
+    
+    for (k in 1:(length(frames))){
+      for (z in 1:(length(values)-1)){
+        secs <- abs(as.integer(difftime(values[1] ,values[z+1] , units = c("secs"))))
+        if (k <= 4){
+          if (secs >= frames[k] && secs < frames[k+1]) {
+            quartiles[k] <- quartiles[k] + 1
+          }
+        } else if (secs >= frames[k]) {
+          quartiles[k] <- quartiles[k] + 1
+        }
+        
+      }
+    }
+  } else {
+    quartiles <- c(0,0,0,0,0)
+  }
+  
+  return (c(quartiles))
+  
+}
+
+
+methods <-
+  read.csv(
+    "~/R/analysis/methods/allMethodsall.csv",
+    stringsAsFactors = FALSE
+  )
+
+methods$typeMethod <- sapply(methods$MethodName, getTypeMethod) 
+
+#Recalculing P1:
+methods$P1 <- mapply(getSatisfiedTs, methods$NtimeofCommits, 3)
+
+# The palette with black:
+cbPalette <- c("#F15854", "#5DA5DA", "#FAA43A", "#B276B2", "#4D4D4D", "#009E73")  #"#", "#F17CB0", DECF3F
+
+#Calculing peaks
+methods[, c("peaksMedian", "peaks1Sd", "peaks2Sd" , "peaks3Sd")] <- 0 
+methods[,c("peaksMedian", "peaks1Sd", "peaks2Sd", "peaks3Sd")] <-  plyr::ldply(methods$elementsValue, getStatsProcess)
+
+#Calculing quartiles
+methods[,c("quartile1", "quartile2", "quartile3", "quartile4", "quartile5")] <- 0 
+methods[,c("quartile1", "quartile2", "quartile3", "quartile4", "quartile5")] <- plyr::ldply(methods$timeofCommits, getTimesProcess)
+
+```
+
+
+####RQ1: How often do changes and bugs occurin the history of methods?
+
+* Gráfico dos projetos Contendo a Quantidade commits x Tipos de Metodos
+```{r}
+projects <- unique(methods$Project)
+
+typeMethodsData <- methods %>%
+  group_by(Project, NtimeofCommits, typeMethod) %>%
+  summarise(Changes = sum(Count)) %>% 
+  mutate(Percentual = Changes / sum(Changes) * 100) %>% 
+  ungroup()
+
+#Amount
+for (project in projects) {
+  
+print(ggplot(filter(typeMethodsData, Project == project, NtimeofCommits <= 10)) +
+  geom_bar(aes(x = NtimeofCommits, y = Percentual, fill = typeMethod, group = typeMethod), position = "dodge", stat = "identity") +
+  geom_text(aes(x = NtimeofCommits, y = Percentual, label = round(Percentual,2), group = typeMethod),  
+            check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) +  
+  theme(legend.direction="vertical", legend.title = element_blank(), legend.text=element_text(size=6), 
+        legend.background = element_rect(fill = "transparent", colour = NA), axis.ticks.x = ) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) + 
+  ggtitle(paste0("Project ", project)) + ylab("Percentual") + 
+  scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+  scale_fill_manual(values=cbPalette))
+}
+
+
+
+```
+
+* Gráfico de Todos os Projetos
+```{r}
+#Summarize the type of methods by percentual
+typeMethodsDataAll <- methods %>%
+  group_by( NtimeofCommits, typeMethod) %>%
+  summarise(Changes = sum(Count)) %>% 
+  mutate(Percentual = Changes / sum(Changes) * 100) %>% 
+  ungroup()
+
+
+ggplot(filter(typeMethodsDataAll, NtimeofCommits <= 10)) +
+    geom_bar(aes(x = NtimeofCommits, y = Percentual, fill = typeMethod, group = typeMethod), position = "dodge", stat = "identity") +
+    geom_text(aes(x = NtimeofCommits, y = Percentual, label = round(Percentual,2), group = typeMethod),  
+              check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) +  
+    theme(legend.direction="vertical", legend.title = element_blank(), legend.text=element_text(size=6), 
+          legend.background = element_rect(fill = "transparent", colour = NA), axis.ticks.x = ) +
+    theme(panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          plot.background = element_rect(fill = "transparent", colour = NA)) + 
+    ggtitle("Plots by Type of Methods") + ylab("Percentual") + 
+    scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+    scale_fill_manual(values=cbPalette)
+```
+
+* Boxplot dos Projetos
+
+```{r}
+
+#Boxplots por Projetos:
+projects <- unique(methods$Project)
+
+ggplot(methods, aes(x=Project, y=NtimeofCommits)) + 
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_x_discrete(name = project)
+```
+
+Explicar as constraints como esse comportamento ocorre ao longo das constraints de maneira profunda, ou seja, explicar porque algumas constraints diminui pouco a % e algumas muito.
+
+* **TODO** Nova tabela com o k=1:
+```{r}
+resultsC1C4<-
+  sqldf(
+    "SELECT Project, SUM(Count) as TotalTimeSeries, 
+     SUM(CASE WHEN (P2 = 1) AND (P1 = 1) THEN 1 ELSE 0 end) as 'C1',
+     SUM(CASE WHEN (P2 = 1) AND (P1 = 1) AND (P4 = 1) THEN 1 ELSE 0 end) as 'C1-C2',
+     SUM(CASE WHEN (P2 = 1) AND (P1 = 1) AND (P4 = 1) AND (P5 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C3',
+     SUM(CASE WHEN (P2 = 1) AND (P1 = 1) AND (P4 = 1) AND (P3 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C4',
+     SUM(CASE WHEN (P2 = 1) AND (P1 = 1) AND (P3 = 1) AND (P4 = 1) AND (P5 = 1) THEN 1 ELSE 0 end) as 'C1-C2-C3-C4'
+     FROM methods
+     GROUP BY Project"
+  )
+
+resultsC1C4
+```
+
+* Novo gráfico contendo os metodos com 1 e 2 commits :
+
+```{r message=FALSE, warning=FALSE, echo=FALSE, comment= FALSE}
+
+
+totalK <- as.data.frame(methods %>%
+                          group_by(Project, NtimeofCommits) %>%
+                          summarise(NumberK = sum(Count)))
+
+sumTs <- as.data.frame(methods %>%
+                         group_by(Project) %>%
+                         summarise( totalTs = sum(Count)))
+
+dataK <- inner_join(totalK, sumTs)		  
+dataK[, "Perc"] <- round(dataK$NumberK/dataK$totalTs,2)
+
+k1 <- ggplot(filter(dataK, NtimeofCommits <= 10, Project %in% projects[0:5])) +
+  geom_bar(aes(x=NtimeofCommits,y=Perc,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) 
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+
+k2 <- ggplot(filter(dataK, NtimeofCommits <= 10, Project %in% projects[6:10])) +
+  geom_bar(aes(x=NtimeofCommits,y=Perc,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) 
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+
+ggarrange(k1 , k2 , ncol = 1, nrow = 2)
+
+```
+
+####RQ2: How close is the relationship betweenthe history of bugs and changes?
+
+* Comparativo entre as tecnicas:
+
+```{r warning=FALSE, echo=FALSE, comment= FALSE}
+
+#Granger Positives
+methodsGrangerPos <-
+  read.csv(
+    "~/R/analysis/methods/allMethodsGrangerPositives.csv",
+    stringsAsFactors = FALSE)
+
+methodsGrangerPos$Type <- "Granger"
+
+#RL Positives
+methodsReg <-
+  read.csv(
+    "~/R/analysis/methods/allMethodsRegression.csv",
+    stringsAsFactors = FALSE)
+
+methodsReg$Type <- "Linear"
+
+methodsReg$pvalue <- NULL
+
+allMethods <- rbind(methodsGrangerPos, methodsReg)
+
+#Boxplots Geral:
+ggplot(allMethods, aes(x=Type, y=NtimeofCommits)) + geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(name ="Linear Reg x Granger")
+
+
+#Violin Plot
+with(allMethods, vioplot(NtimeofCommits[Type == "Granger"],
+                      NtimeofCommits[Type == "Linear"],
+                      names = c("Granger", "Linear"),
+                      col = "gray", colMed = rgb(115, 165, 214, maxColorValue = 255)))
+title(main = "Violin Plot", ylab = "Number of Commits", xlab = "Type")
+```
+
+#### RQ3: Which kind of changes are mostlyrelated to the bugs insertion?
+
+* Gráfico de Pareto de Metricas Individuais de todos os métodos que possuem bugs:
+
+```{r}
+
+#IndividualMetrics
+colMethods <- c("Project", "MethodName", "Metric", "groupMetric", "changeType" ,"P1", "P2", "P3", "P4", "P5", "elementsValue", "NtimeofCommits", "Count", "GrangerPos")
+
+#resultsClasses <- subset( resultsClasses, select = c(colClasses) )
+resultsMethods <- subset( methods, select = c(colMethods) )
+
+#Filter:D
+resultsMethods <- filter(resultsMethods, P2 == 1, groupMetric != "RM")
+
+#IndividualMetrics
+indMetrics<-
+  sqldf(
+    "SELECT Project, Metric, SUM(Count) as Changes
+    FROM resultsMethods
+    WHERE changeType <> 'All' 
+    AND groupMetric <>'All'
+    AND Metric <> 'All'
+    GROUP BY Project, Metric"
+  )
+
+metrics <- c()
+# Applying the function to the pareto function:
+for (project in projects){
+  df <- filter(indMetrics, Project == project)[,c(2,3)]
+  i<-1
+  for (x in 1:nrow(df)){
+    for (y in 1:df$Changes[x]){
+      metrics[i] <- df$Metric[x]
+      i <- i + 1
+    }
+  }
+  ggpareto(metrics, project)
+}
+
+```
+
+* Gráfico de Pareto de Metricas Individuais dos metodos com resultados do teste de Granger positivos:
+
+```{r}
+#Groups metrics
+grpMetrics <- read.csv(file = "~/R/analysis/methods/dataMetricsGranger.csv", stringsAsFactors = FALSE)
+
+
+metrics <- c()
+# Applying the function to the pareto function:
+for (project in projects){
+  df <- filter(grpMetrics, Project == project)[,c(3,4)]
+  i<-1
+  for (x in 1:nrow(df)){
+    for (y in 1:df$Changes[x]){
+      mylist[i] <- df$Metric[x]
+      i <- i + 1
+    }
+  }
+  ggpareto(mylist, project)
+}
+
+```
+
+
+### RQ4: 
+
+* Changes ao longo do tempo por projetos:
+
+```{r}
+
+dfQuartils <- as.data.frame(methods %>%
+  group_by(Project, typeMethod) %>%
+  summarise(quartile1 = sum(quartile1), quartile2 = sum(quartile2), quartile3 = sum(quartile3), 
+            quartile4 = sum(quartile4), quartile5 = sum(quartile5)))
+
+
+tdfQuartils <- melt(dfQuartils, id=(c("Project", "typeMethod")))
+colnames(tdfQuartils) <- c("Project", "typeMethod", "Quartiles", "Values")
+
+
+#Summarize the type of methods by percentual
+dfQuartilsProjects <- tdfQuartils %>%
+  group_by( Project, Quartiles) %>%
+  summarise(Values = sum(Values)) %>% 
+  mutate(Percentual = Values / sum(Values) * 100) %>% 
+  ungroup()
+
+#Amount
+#Changes over time by projects
+  
+ggplot(dfQuartilsProjects) +
+geom_bar(aes(x = Quartiles, y = Percentual, fill = Project, group = Project), position = "dodge", stat = "identity") +
+geom_text(aes(x = Quartiles, y = Percentual, label = round(Percentual,2), group = Project),  
+          check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) +  
+theme(legend.direction="vertical", legend.title = element_blank(), legend.text=element_text(size=6), 
+      legend.background = element_rect(fill = "transparent", colour = NA), axis.ticks.x = ) +
+theme(panel.grid.minor = element_blank(), 
+      panel.grid.major = element_blank(),
+      plot.background = element_rect(fill = "transparent", colour = NA)) + 
+ggtitle(paste0("Project ", project)) + ylab("Percentual") 
+#scale_fill_manual(values=cbPalette)
+```
+
+* Mudanças ao longo do tempo por tipos de metodos:
+
+```{r}
+
+#Summarize the type of methods by percentual
+dfQuartilsTypes <- tdfQuartils %>%
+  group_by( typeMethod, Quartiles ) %>%
+  summarise(Values = sum(Values)) %>% 
+  mutate(Percentual = Values / sum(Values) * 100) %>% 
+  ungroup()
+
+#Changes over time by types of methods
+ggplot(dfQuartilsTypes) +
+  geom_bar(aes(x = Quartiles, y = Percentual, fill = typeMethod, group = typeMethod), position = "dodge", stat = "identity") +
+  geom_text(aes(x = Quartiles, y = Percentual, label = round(Percentual,2), group = typeMethod),  
+            check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) +  
+  theme(legend.direction="vertical", legend.title = element_blank(), legend.text=element_text(size=6), 
+        legend.background = element_rect(fill = "transparent", colour = NA), axis.ticks.x = ) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) + 
+  ggtitle(paste0("Project ", project)) + ylab("Percentual") +
+  scale_fill_manual(values=cbPalette)
+```
+
+
+* Picos ao longo do tempo por projetos: 
+
+```{r}
+
+dfPeaks <- as.data.frame(methods %>%
+                              group_by(Project, typeMethod) %>%
+                              summarise(peaksMedian = sum(peaksMedian), peaks1Sd = sum(peaks1Sd), peaks2Sd = sum(peaks2Sd), 
+                                        peaks3Sd = sum(peaks3Sd)))
+
+
+tdfPeaks <- melt(dfPeaks, id=(c("Project", "typeMethod")))
+colnames(tdfPeaks) <- c("Project", "typeMethod", "Peaks", "Values")
+
+
+#Summarize the type of methods by percentual
+dfPeaksProjects <- tdfPeaks %>%
+  group_by( Project, Peaks) %>%
+  summarise(Values = sum(Values)) %>% 
+  mutate(Percentual = Values / sum(Values) * 100) %>% 
+  ungroup()
+
+#Amount
+#Changes over time by projects
+
+ggplot(dfPeaksProjects) +
+  geom_bar(aes(x = Project, y = Percentual, fill = Peaks, group = Peaks), position = "dodge", stat = "identity") +
+  geom_text(aes(x = Project, y = Percentual, label = round(Percentual,2), group = Peaks),  
+            check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) +  
+  theme(legend.direction="vertical", legend.title = element_blank(), legend.text=element_text(size=6), 
+        legend.background = element_rect(fill = "transparent", colour = NA), axis.ticks.x = ) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) + 
+  ggtitle(paste0("Project ", project)) + ylab("Percentual") +
+  scale_fill_manual(values=cbPalette)
+
+```
+
+* Picos ao longo do tempo por tipos de metodos:
+
+```{r}
+dfPeaksTypes <- tdfPeaks %>%
+  group_by( typeMethod, Peaks ) %>%
+  summarise(Values = sum(Values)) %>% 
+  mutate(Percentual = Values / sum(Values) * 100) %>% 
+  ungroup()
+
+#Changes over time by types of methods
+ggplot(dfPeaksTypes) +
+  geom_bar(aes(x = typeMethod, y = Percentual, fill = Peaks, group = Peaks), position = "dodge", stat = "identity") +
+  geom_text(aes(x = typeMethod, y = Percentual, label = round(Percentual,2), group = Peaks),  
+            check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) +  
+  theme(legend.direction="vertical", legend.title = element_blank(), legend.text=element_text(size=6), 
+        legend.background = element_rect(fill = "transparent", colour = NA), axis.ticks.x = ) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) + 
+  ggtitle(paste0("Project ", project)) + ylab("Percentual") + 
+  scale_fill_manual(values=cbPalette)
+```

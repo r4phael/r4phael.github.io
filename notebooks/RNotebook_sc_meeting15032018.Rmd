@@ -1,0 +1,329 @@
+---
+title: "Meeting 15-03-2018"
+output:
+  html_document:
+    code_folding: hide
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r}
+
+suppressWarnings(library(dplyr))
+suppressWarnings(library(stringr))
+suppressWarnings(library(ggplot2))
+suppressWarnings(library(ggpubr))
+
+methods <-
+  read.csv(
+    "~/R/analysis/methods/allMethodsall.csv",
+    stringsAsFactors = FALSE
+  )
+
+getSatisfiedTs <- function (x, measure) {
+  if (x >= measure) {
+    1
+  } else{
+    0
+  }
+}
+
+chunkIt <- function (seq, avg) {
+  out = list()
+  last = 0.0
+  i<- 0
+  while (last < length(seq)){
+    i <- i+ 1
+    out[[i]] <- seq[(as.integer(last)+1):as.integer(last + avg)]
+    last = last + avg
+  }
+  
+  return (out)
+}
+
+methods$P1 <- mapply(getSatisfiedTs, methods$NtimeofCommits, 3)
+
+# The palette with black:
+cbPalette <- c("#F15854", "#5DA5DA", "#FAA43A", "#B276B2", "#4D4D4D", "#009E73", "#F17CB0", "#DECF3F")
+
+projects <- unique(methods$Project)
+
+```
+
+####RQ1
+####General Metrics of Individual Projects
+
+```{r}
+data_plot <- filter(methods, Metric == 'All', groupMetric == 'All', changeType == 'All', groupMetric != "RM")
+
+data_plot <- data_plot %>%
+  group_by(Project, NtimeofCommits) %>%
+  summarise(Changes = sum(Count)) %>%
+  mutate(Percentual = Changes / sum(Changes) * 100) %>%
+  ungroup()
+
+plot1 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[0:5])) +
+  geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+
+plot2 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[6:10])) +
+  geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+
+ggarrange(plot1 , plot2 , ncol = 1, nrow = 2)
+```
+
+
+
+
+#### Add/Del Metrics of Individual Projects
+
+```{r}
+
+data_plot <- filter(methods, Metric == 'All', groupMetric == 'All', changeType != 'All', groupMetric != "RM")
+
+data_plot <- data_plot %>%
+  group_by(Project, changeType, NtimeofCommits) %>%
+  summarise(Changes = sum(Count)) %>%
+  mutate(Percentual = Changes / sum(Changes) * 100) %>%
+  ungroup()
+
+for (change in unique(data_plot$changeType)){
+  
+  ##Add/Del Changes
+  plot1 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[0:5], changeType == change)) +
+    geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
+    facet_grid(.~Project,scales="free") + 
+    theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+          legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+    ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+    theme(panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          plot.background = element_rect(fill = "transparent", colour = NA))+
+    labs(title = paste0("Barplots of changes by ", change))
+  
+  plot2 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[6:10], changeType == change)) +
+    geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
+    facet_grid(.~Project,scales="free") + 
+    theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+          legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+    ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+    theme(panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          plot.background = element_rect(fill = "transparent", colour = NA))
+  
+  print(ggarrange(plot1 , plot2 , ncol = 1, nrow = 2))
+  
+}
+```
+
+####Groups Metrics of All Projects
+
+```{r message=FALSE, warning=FALSE, echo=FALSE, comment= FALSE, results=FALSE}
+data_plot <- filter(methods, Metric == 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
+
+data_plot <- data_plot %>%
+  group_by(Project, groupMetric, NtimeofCommits) %>%
+  summarise(Changes = sum(Count)) %>%
+  mutate(Percentual = Changes / sum(Changes) * 100) %>%
+  ungroup()
+
+list_plots <- list()
+z <- 0
+
+#for (i in 1:length(projects)){
+#group_metrics <- unique(filter(data_plot, Project == projects[i])$groupMetric)
+#list_groups <- chunkIt(groupsMetrics, 5)
+
+group_metrics <- unique(data_plot$groupMetric)
+  
+list_groups <- chunkIt(group_metrics, 5)
+  
+  for (j in 1: length(list_groups)){
+    
+    list_groups_na <- list_groups[[j]]
+    
+    plot1 <- ggplot(filter(data_plot, NtimeofCommits <= 10, groupMetric %in% list_groups_na))+ #, Project == projects[i])) +
+      geom_bar(aes(x=NtimeofCommits, y=Percentual, group= groupMetric), position = "dodge", stat = "identity") +
+      facet_grid(.~groupMetric,scales="free") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+      theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+            legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+      ylab("Percentual") + 
+      theme(panel.grid.minor = element_blank(), 
+            panel.grid.major = element_blank(),
+            plot.background = element_rect(fill = "transparent", colour = NA)) +
+      labs(title = paste0("Groups Metrics ", ""))# projects[i]))
+    
+    z <- z + 1
+    list_plots[[z]] <- plot1
+  }
+
+#}
+
+#Plots of groups
+print(list_plots)
+```
+
+####Individual Metrics of All Projects
+
+```{r}
+
+data_plot <- filter(methods, Metric != 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
+
+data_plot <- data_plot %>%
+  group_by(Project, Metric, NtimeofCommits) %>%
+  summarise(Changes = sum(Count)) %>%
+  mutate(Percentual = Changes / sum(Changes) * 100) %>%
+  ungroup()
+
+list_plots <- list()
+z <- 0
+
+#projects <- unique(data_plot$Project)
+#for (i in 1:length(projects)){
+# metrics <- unique(filter(data_plot, Project == projects[i])$Metric)
+
+metrics <- unique(data_plot$Metric)
+  
+list_metrics <- chunkIt(metrics, 5)
+  
+  for (j in 1: length(list_metrics)){
+    
+    list_metrics_na <- list_metrics[[j]]
+    
+    plot1 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Metric %in% list_metrics_na)) + #, Project == projects[i])) +
+      geom_bar(aes(x=NtimeofCommits, y=Percentual, group= Metric), position = "dodge", stat = "identity") +
+      facet_grid(.~Metric,scales="free") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+      theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+            legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+      ylab("Percentual") + 
+      theme(panel.grid.minor = element_blank(), 
+            panel.grid.major = element_blank(),
+            plot.background = element_rect(fill = "transparent", colour = NA)) +
+      labs(title = paste0("Individual Metrics ", "")) #projects[i]))
+    
+    z <- z + 1
+    list_plots[[z]] <- plot1
+  }
+
+#}
+
+#Plots of Individual metrics
+print(list_plots)
+```
+
+
+####Groups Metrics of Individual Projects.
+
+```{r message=FALSE, warning=FALSE, echo=FALSE, comment= FALSE, results=FALSE}
+data_plot <- filter(methods, Metric == 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
+
+data_plot <- data_plot %>%
+  group_by(Project, groupMetric, NtimeofCommits) %>%
+  summarise(Changes = sum(Count)) %>%
+  mutate(Percentual = Changes / sum(Changes) * 100) %>%
+  ungroup()
+
+list_plots <- list()
+z <- 0
+
+for (i in 1:length(projects)){
+  
+group_metrics <- unique(filter(data_plot, Project == projects[i])$groupMetric)
+
+list_groups <- chunkIt(group_metrics, 5)
+  
+for (j in 1: length(list_groups)){
+    
+    list_groups_na <- list_groups[[j]]
+    
+    plot1 <- ggplot(filter(data_plot, NtimeofCommits <= 10, groupMetric %in% list_groups_na, Project == projects[i])) +
+      geom_bar(aes(x=NtimeofCommits, y=Percentual, group= groupMetric), position = "dodge", stat = "identity") +
+      facet_grid(.~groupMetric,scales="free") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+      theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+            legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+      ylab("Percentual") + 
+      theme(panel.grid.minor = element_blank(), 
+            panel.grid.major = element_blank(),
+            plot.background = element_rect(fill = "transparent", colour = NA)) +
+      labs(title = paste0("Groups Metrics ", projects[i]))
+    
+    z <- z + 1
+    list_plots[[z]] <- plot1
+  }
+
+}
+
+#Plots of groups
+print(list_plots)
+```
+
+####Individual Metrics of Each Especific Project.
+
+```{r}
+
+data_plot <- filter(methods, Metric != 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
+
+data_plot <- data_plot %>%
+  group_by(Project, Metric, NtimeofCommits) %>%
+  summarise(Changes = sum(Count)) %>%
+  mutate(Percentual = Changes / sum(Changes) * 100) %>%
+  ungroup()
+
+list_plots <- list()
+z <- 0
+
+projects <- unique(data_plot$Project)
+
+for (i in 1:length(projects)){
+
+  metrics <- unique(filter(data_plot, Project == projects[i])$Metric)
+  
+  list_metrics <- chunkIt(metrics, 5)
+  
+  for (j in 1: length(list_metrics)){
+    
+    list_metrics_na <- list_metrics[[j]]
+    
+    plot1 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Metric %in% list_metrics_na, Project == projects[i])) +
+      geom_bar(aes(x=NtimeofCommits, y=Percentual, group= Metric), position = "dodge", stat = "identity") +
+      facet_grid(.~Metric,scales="free") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+      theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+            legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+      ylab("Percentual") + 
+      theme(panel.grid.minor = element_blank(), 
+            panel.grid.major = element_blank(),
+            plot.background = element_rect(fill = "transparent", colour = NA)) +
+      labs(title = paste0("Individual Metrics ", projects[i]))
+    
+    z <- z + 1
+    list_plots[[z]] <- plot1
+  }
+
+}
+
+#Plots of Individual metrics
+print(list_plots)
+```
+
+
+
+
+
+
+
+
