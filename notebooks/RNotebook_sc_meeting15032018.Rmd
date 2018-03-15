@@ -1,9 +1,9 @@
 ---
 title: "Meeting 15-03-2018"
 output:
+  html_notebook: default
   html_document:
     code_folding: hide
-  html_notebook: default
   pdf_document: default
 ---
 
@@ -137,7 +137,7 @@ for (change in unique(data_plot$changeType)){
 data_plot <- filter(methods, Metric == 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
 
 data_plot <- data_plot %>%
-  group_by(Project, groupMetric, NtimeofCommits) %>%
+  group_by(groupMetric, NtimeofCommits) %>%
   summarise(Changes = sum(Count)) %>%
   mutate(Percentual = Changes / sum(Changes) * 100) %>%
   ungroup()
@@ -175,7 +175,9 @@ list_groups <- chunkIt(group_metrics, 5)
 #}
 
 #Plots of groups
-print(list_plots)
+for (i in 1:length(list_plots)){
+  print(list_plots[[i]])
+}
 ```
 
 ####Individual Metrics of All Projects
@@ -185,7 +187,7 @@ print(list_plots)
 data_plot <- filter(methods, Metric != 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
 
 data_plot <- data_plot %>%
-  group_by(Project, Metric, NtimeofCommits) %>%
+  group_by(Metric, NtimeofCommits) %>%
   summarise(Changes = sum(Count)) %>%
   mutate(Percentual = Changes / sum(Changes) * 100) %>%
   ungroup()
@@ -223,7 +225,9 @@ list_metrics <- chunkIt(metrics, 5)
 #}
 
 #Plots of Individual metrics
-print(list_plots)
+for (i in 1:length(list_plots)){
+  print(list_plots[[i]])
+}
 ```
 
 
@@ -269,7 +273,9 @@ for (j in 1: length(list_groups)){
 }
 
 #Plots of groups
-print(list_plots)
+for (i in 1:length(list_plots)){
+  print(list_plots[[i]])
+}
 ```
 
 ####Individual Metrics of Each Especific Project.
@@ -317,12 +323,14 @@ for (i in 1:length(projects)){
 }
 
 #Plots of Individual metrics
-print(list_plots)
+for (i in 1:length(list_plots)){
+  print(list_plots[[i]])
+}
 ```
 
 
 
-
+#### Popular Metrics in Each Commit
 
 
 
