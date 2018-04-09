@@ -1,32 +1,21 @@
 ---
 title: "Meeting 15-03-2018"
 output:
-  html_notebook: default
-  html_document:
-    code_folding: hide
-  pdf_document: default
 ---
 
 ```{r}
 
-suppressWarnings(library(dplyr))
-suppressWarnings(library(stringr))
-suppressWarnings(library(ggplot2))
-suppressWarnings(library(ggpubr))
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(ggpubr)
+library(sqldf)
 
 methods <-
   read.csv(
-    "~/R/analysis/methods/allMethodsall.csv",
+    "~/R/analysis/insertions/insertionsall.csv",
     stringsAsFactors = FALSE
   )
-
-getSatisfiedTs <- function (x, measure) {
-  if (x >= measure) {
-    1
-  } else{
-    0
-  }
-}
 
 chunkIt <- function (seq, avg) {
   out = list()
@@ -41,7 +30,49 @@ chunkIt <- function (seq, avg) {
   return (out)
 }
 
-methods$P1 <- mapply(getSatisfiedTs, methods$NtimeofCommits, 3)
+# implementing the function:
+ggpareto <- function(x, title) {
+  
+  #title <- deparse(substitute(x))
+  
+  x <- data.frame(modality = na.omit(x))
+  
+  Df <- x %>% group_by(modality) %>% summarise(frequency=n()) %>% 
+    arrange(desc(frequency))
+  
+  Df$modality <- ordered(Df$modality, levels = unlist(Df$modality, use.names = F))
+  
+  Df <- Df %>% mutate(modality_int = as.integer(modality), 
+                      cumfreq = cumsum(frequency), cumperc = cumfreq/nrow(x) * 100)
+  nr <- nrow(Df)
+  N <- sum(Df$frequency)
+  
+  Df_ticks <- data.frame(xtick0 = rep(nr +.55, 11), xtick1 = rep(nr +.59, 11), 
+                         ytick = seq(0, N, N/10))
+  
+  y2 <- c("  0%", " 10%", " 20%", " 30%", " 40%", " 50%", " 60%", " 70%", " 80%", " 90%", "100%")
+  
+  g <- ggplot(Df, aes(x=modality, y=frequency)) + 
+    geom_bar(stat="identity", aes(fill = modality_int)) +
+    geom_line(aes(x=modality_int, y = cumfreq, color = modality_int)) +
+    geom_point(aes(x=modality_int, y = cumfreq, color = modality_int), pch = 19) +
+    scale_y_continuous(breaks=seq(0, N, N/10), limits=c(-.02 * N, N * 1.02)) + 
+    scale_x_discrete(breaks = Df$modality) +
+    guides(fill = FALSE, color = FALSE) + 
+    annotate("rect", xmin = nr + .55, xmax = nr + 1, 
+             ymin = -.02 * N, ymax = N * 1.02, fill = "white") +
+    annotate("text", x = nr + .8, y = seq(0, N, N/10), label = y2, size = 3.5) +
+    geom_segment(x = nr + .55, xend = nr + .55, y = -.02 * N, yend = N * 1.02, color = "grey50") +
+    geom_segment(data = Df_ticks, aes(x = xtick0, y = ytick, xend = xtick1, yend = ytick)) +
+    labs(title = paste0("Pareto Chart of ", title), y = "Frequency of Methods With Bugs", x = "Metrics") +
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  
+  print(g)
+  
+  #return(list(graph = g, Df = Df[, c(3, 1, 2, 4, 5)]))
+  return (graph = g)
+}
 
 # The palette with black:
 cbPalette <- c("#F15854", "#5DA5DA", "#FAA43A", "#B276B2", "#4D4D4D", "#009E73", "#F17CB0", "#DECF3F")
@@ -50,7 +81,7 @@ projects <- unique(methods$Project)
 
 ```
 
-####RQ1
+###RQ1: How often do changes and bugs occurin the history of methods?
 ####General Metrics of Individual Projects
 
 ```{r}
@@ -73,18 +104,19 @@ plot1 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[0:
         plot.background = element_rect(fill = "transparent", colour = NA))
 
 
-plot2 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[6:10])) +
-  geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
-  facet_grid(.~Project,scales="free") + 
-  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
-        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
-  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
-  theme(panel.grid.minor = element_blank(), 
-        panel.grid.major = element_blank(),
-        plot.background = element_rect(fill = "transparent", colour = NA))
+plot1
 
-
-ggarrange(plot1 , plot2 , ncol = 1, nrow = 2)
+# plot2 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[6:10])) +
+#   geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
+#   facet_grid(.~Project,scales="free") +
+#   theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(),
+#         legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+#   ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+#   theme(panel.grid.minor = element_blank(),
+#         panel.grid.major = element_blank(),
+#         plot.background = element_rect(fill = "transparent", colour = NA))
+# 
+# ggarrange(plot1 , plot2 , ncol = 1, nrow = 2)
 ```
 
 
@@ -116,17 +148,19 @@ for (change in unique(data_plot$changeType)){
           plot.background = element_rect(fill = "transparent", colour = NA))+
     labs(title = paste0("Barplots of changes by ", change))
   
-  plot2 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[6:10], changeType == change)) +
-    geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
-    facet_grid(.~Project,scales="free") + 
-    theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
-          legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
-    ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
-    theme(panel.grid.minor = element_blank(), 
-          panel.grid.major = element_blank(),
-          plot.background = element_rect(fill = "transparent", colour = NA))
+  print(plot1)
   
-  print(ggarrange(plot1 , plot2 , ncol = 1, nrow = 2))
+  # plot2 <- ggplot(filter(data_plot, NtimeofCommits <= 10, Project %in% projects[6:10], changeType == change)) +
+  #   geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
+  #   facet_grid(.~Project,scales="free") + 
+  #   theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+  #         legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  #   ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+  #   theme(panel.grid.minor = element_blank(), 
+  #         panel.grid.major = element_blank(),
+  #         plot.background = element_rect(fill = "transparent", colour = NA))
+  # 
+  # print(ggarrange(plot1 , plot2 , ncol = 1, nrow = 2))
   
 }
 ```
@@ -134,7 +168,7 @@ for (change in unique(data_plot$changeType)){
 ####Groups Metrics of All Projects
 
 ```{r message=FALSE, warning=FALSE, echo=FALSE, comment= FALSE, results=FALSE}
-data_plot <- filter(methods, Metric == 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
+data_plot <- filter(methods, Metric == 'All',  groupMetric != 'All', changeType == 'All', groupMetric != "RM")
 
 data_plot <- data_plot %>%
   group_by(groupMetric, NtimeofCommits) %>%
@@ -151,7 +185,7 @@ z <- 0
 
 group_metrics <- unique(data_plot$groupMetric)
   
-list_groups <- chunkIt(group_metrics, 5)
+list_groups <- chunkIt(group_metrics, 4)
   
   for (j in 1: length(list_groups)){
     
@@ -184,7 +218,7 @@ for (i in 1:length(list_plots)){
 
 ```{r}
 
-data_plot <- filter(methods, Metric != 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
+data_plot <- filter(methods, Metric != 'All',  groupMetric != 'All', changeType == 'All', groupMetric != "RM")
 
 data_plot <- data_plot %>%
   group_by(Metric, NtimeofCommits) %>%
@@ -234,7 +268,7 @@ for (i in 1:length(list_plots)){
 ####Groups Metrics of Individual Projects.
 
 ```{r message=FALSE, warning=FALSE, echo=FALSE, comment= FALSE, results=FALSE}
-data_plot <- filter(methods, Metric == 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
+data_plot <- filter(methods, Metric == 'All',  groupMetric != 'All', changeType == 'All', groupMetric != "RM")
 
 data_plot <- data_plot %>%
   group_by(Project, groupMetric, NtimeofCommits) %>%
@@ -282,7 +316,7 @@ for (i in 1:length(list_plots)){
 
 ```{r}
 
-data_plot <- filter(methods, Metric != 'All',  groupMetric != 'All', changeType != 'All', groupMetric != "RM")
+data_plot <- filter(methods, Metric != 'All',  groupMetric != 'All', changeType == 'All', groupMetric != "RM")
 
 data_plot <- data_plot %>%
   group_by(Project, Metric, NtimeofCommits) %>%
@@ -328,10 +362,86 @@ for (i in 1:length(list_plots)){
 }
 ```
 
+####RQ2: How close is the relationship between the history of bugs and changes?
 
 
-#### Popular Metrics in Each Commit
+#### RQ3: Which kind of changes are mostlyrelated to the bugs insertion?
+
+* Gráfico de Pareto de Metricas Individuais de todos os métodos que possuem bugs (sem as metricas redundantes [RM]):
 
 
+```{r}
+#IndividualMetrics
+colMethods <- c("Project", "MethodName", "Metric", "groupMetric", "changeType", "elementsValue", "NtimeofCommits", "Count")
 
+#resultsClasses <- subset( resultsClasses, select = c(colClasses) )
+resultsMethods <- subset( methods, select = c(colMethods))
+
+#Filter:D
+resultsMethods <- filter(resultsMethods, groupMetric != "RM")
+
+#IndividualMetrics
+indMetrics<-
+  sqldf(
+    "SELECT Project, Metric, SUM(Count) as Changes
+    FROM resultsMethods
+    WHERE changeType = 'All' 
+    AND groupMetric <>'All'
+    AND Metric <> 'All'
+    GROUP BY Project, Metric"
+  )
+
+metrics <- c()
+# Applying the function to the pareto function:
+for (project in projects){
+  df <- filter(indMetrics, Project == project)[,c(2,3)]
+  i<-1
+  for (x in 1:nrow(df)){
+    for (y in 1:df$Changes[x]){
+      metrics[i] <- df$Metric[x]
+      i <- i + 1
+    }
+  }
+  ggpareto(metrics, project)
+}
+
+```
+
+
+* Gráfico de Pareto de Metricas Individuais de todos os métodos que possuem bugs (sem as metricas redundantes [RM]):
+```{r}
+#IndividualMetrics
+colMethods <- c("Project", "MethodName", "Metric", "groupMetric", "changeType", "elementsValue", "NtimeofCommits", "Count")
+
+#resultsClasses <- subset( resultsClasses, select = c(colClasses) )
+resultsMethods <- subset( methods, select = c(colMethods))
+
+#Filter:D
+resultsMethods <- filter(resultsMethods, groupMetric != "RM")
+
+#IndividualMetrics
+groupMetrics<-
+  sqldf(
+    "SELECT Project, groupMetric, SUM(Count) as Changes
+    FROM resultsMethods
+    WHERE changeType = 'All' 
+    AND groupMetric <>'All'
+    AND Metric = 'All'
+    GROUP BY Project, groupMetric"
+  )
+
+metrics <- c()
+# Applying the function to the pareto function:
+for (project in projects){
+  df <- filter(groupMetrics, Project == project)[,c(2,3)]
+  i<-1
+  for (x in 1:nrow(df)){
+    for (y in 1:df$Changes[x]){
+      metrics[i] <- df$groupMetric[x]
+      i <- i + 1
+    }
+  }
+  ggpareto(metrics, project)
+}
+```
 
