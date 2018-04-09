@@ -10,11 +10,9 @@ Link to the [Notebook](notebooks/RNotebook_mlufal201702.nb.html)
 
 ### Software History
 
-Link to the [Meeting 1](notebooks/RNotebook_sc_meeting07032018.nb.html)
+Link to the [Notebook1-ICSME](notebooks/RNotebook_sc_meeting13032018.nb.html)
 
-Link to the [Meeting 2](notebooks/RNotebook_sc_meeting13032018.nb.html)
-
-Link to the [Meeting 3](notebooks/RNotebook_sc_meeting15032018.nb.html)
+Link to the [Notebook2-ISSRE](notebooks/RNotebook_sc_meeting15032018.nb.html)
 
 ### Support or Contact
 Jairo Souza
