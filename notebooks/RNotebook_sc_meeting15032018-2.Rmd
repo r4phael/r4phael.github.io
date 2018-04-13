@@ -1,7 +1,8 @@
 ---
-title: "Meeting 15-03-2018"
-output: pdf_document
+title: "R Notebook"
+output: html_notebook
 ---
+
 
 ```{r}
 
@@ -616,4 +617,3 @@ eff_all <-inner_join(inner_join(eff_type, eff_group),eff_ind)
 eff_all
 
 ```
-
