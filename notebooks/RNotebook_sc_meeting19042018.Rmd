@@ -1,0 +1,210 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ISSRE-2018
+
+```{r}
+library(plyr)
+library(dplyr)
+library(reshape)
+library(ggplot2)
+library(RNeo4j)
+library(sqldf)
+
+methods <-
+  read.csv(
+    "/home/r4ph/R/analysis/methods/5projectsTotalall.csv",
+    stringsAsFactors = FALSE
+  )
+```
+
+```{r}
+####General Metrics of Individual Projects
+data_changes <- filter(methods, Metric == 'All', groupMetric == 'All', changeType == 'All')
+
+```
+
+
+```{r}
+getTotalChanges <- function (x) {
+  Reduce("+",as.integer(strsplit(x, ",")[[1]]))
+}
+
+getTotalBugs <- function (x) {
+  as.integer(length(as.list(strsplit(x, ","))[[1]]))
+}
+
+data_changes[,"Changes"] <- mapply(getTotalChanges, data_changes$elementsValue)
+data_changes[,"totalofBugs"] <- mapply(getTotalBugs, data_changes$IDbugs)
+
+
+  
+```
+
+### (G1)To investigate the occurrence of commits along the history; 
+####(Q1.1) How often are commits performed? 
+```{r}
+
+data_plot <- data_changes %>%
+  group_by(Project, NtimeofCommits) %>%
+  summarise(Changes = sum(Count)) %>%
+  mutate(Percentual = Changes / sum(Changes) * 100) %>%
+  ungroup()
+
+data_plot
+
+plot1 <- ggplot(filter(data_plot, NtimeofCommits <= 10)) +
+  geom_bar(aes(x=NtimeofCommits,y=Percentual,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual of Time Series by Commits") + scale_x_discrete(name ="Number of Commits", limits=c("1","2","3","4","5","6","7","8","9","10")) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+
+plot1
+```
+
+
+
+####(Q1.2) How disperse are changes among time series? (Changes x Commits)
+```{r}
+
+data_plot <- data_changes %>%
+  group_by(Project, NtimeofCommits) %>%
+  summarise(Changes = sum(Changes)) %>%
+  mutate(Percentual = Changes / sum(Changes) * 100) %>%
+  ungroup()
+
+data_plot
+
+for (project in projects){
+  plot2 <- ggplot(filter(data_plot, Project == project, NtimeofCommits <= 25)) +
+  geom_bar(aes(x=NtimeofCommits,y=Percentual), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Percentual of Changes by Commits") + scale_x_discrete(name ="Number of Commits", limits=seq(1,25)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+  print(plot2)
+}
+
+```
+
+####(Q1.3) How disperse are changes among commits? (Changes x Time Series)
+```{r}
+
+data_plot <- data_changes %>%
+    dplyr::group_by(Project, NtimeofCommits) %>%
+    dplyr::summarise(nTs = sum(Count), 
+                    nChanges = sum(Changes),
+                    ChangesByTs = sum(Changes)/ sum(Count),
+                    nBugs = sum(totalofBugs)) %>%
+    dplyr::mutate(Percentual = (ChangesByTs/sum(ChangesByTs)) * 100 ) %>%
+    dplyr::ungroup()
+
+data_plot
+
+for (project in projects){
+  
+  plot2 <- ggplot(filter(data_plot, Project == project, NtimeofCommits <= 25)) +
+  geom_bar(aes(x=NtimeofCommits,y=Percentual), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Percentual of Changes by Time Seris") + scale_x_discrete(name ="Number of Commits", limits=seq(1,25)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+  print(plot2)
+}
+
+
+```
+
+### (G2)To assess the introduction of bugs along the history; 
+
+```{r}
+data_plot <- data_changes %>%
+    dplyr::group_by(Project, NtimeofCommits) %>%
+    dplyr::summarise(nTs = sum(Count), 
+                    nChanges = sum(Changes),
+                    nBugs = sum(totalofBugs),
+                    BugsByTs = sum(totalofBugs)/sum(Count),
+                    BugsByChanges = sum(totalofBugs)/ sum(Changes)) %>%
+    dplyr::mutate(PercBugsByTs = (BugsByTs/sum(BugsByTs)) * 100,
+                  PercBugsByCommit = (nBugs/sum(nBugs)) * 100,
+                  PercBugsByChanges = (BugsByChanges/sum(BugsByChanges)) * 100) %>%
+    dplyr::ungroup()
+
+data_plot
+```
+
+#### (Q2.1) How often are bugs introduced among the time series? (Bugs x Time Series)
+```{r}
+
+for (project in projects){
+  
+  plot2 <- ggplot(filter(data_plot, Project == project, NtimeofCommits <= 25)) +
+  geom_bar(aes(x=NtimeofCommits,y=PercBugsByTs), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Percentual of Changes by Time Seris") + scale_x_discrete(name ="Number of Commits", limits=seq(1,25)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+  print(plot2)
+}
+
+```
+
+#### (Q2.2) How often are bugs introduced among the commits? (Bugs x Commits)
+```{r}
+
+for (project in projects){
+  
+  plot2 <- ggplot(filter(data_plot, Project == project, NtimeofCommits <= 25)) +
+  geom_bar(aes(x=NtimeofCommits,y=PercBugsByCommit), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Percentual of Changes by Time Seris") + scale_x_discrete(name ="Number of Commits", limits=seq(1,25)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+  print(plot2)
+}
+
+```
+
+#### (Q2.3) How often are bugs introduced among the changes? (Bugs x CHanges)
+```{r}
+
+for (project in projects){
+  
+  plot2 <- ggplot(filter(data_plot, Project == project, NtimeofCommits <= 25)) +
+  geom_bar(aes(x=NtimeofCommits,y=PercBugsByChanges), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Percentual of Changes by Time Seris") + scale_x_discrete(name ="Number of Commits", limits=seq(1,25)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA))
+
+  print(plot2)
+}
+
+```
+

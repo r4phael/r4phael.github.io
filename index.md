@@ -14,5 +14,7 @@ Link to the [Notebook1-ICSME](notebooks/RNotebook_sc_meeting13032018.nb.html)
 
 Link to the [Notebook2-ISSRE](notebooks/RNotebook_sc_meeting15032018-2.nb.html)
 
+Link to the [Notebook3-ISSRE](notebooks/RNotebook_sc_meeting19042018.nb.html)
+
 ### Support or Contact
 Jairo Souza
