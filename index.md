@@ -12,7 +12,8 @@ Link to the [Notebook](notebooks/RNotebook_mlufal201702.nb.html)
 
 Link to the [Notebook1-ICSME](notebooks/RNotebook_sc_meeting13032018.nb.html)
 
-Link to the [Notebook2-ISSRE](notebooks/RNotebook_sc_meeting19042018.nb.html)
+ISSRE 2018 - Notebooks by project:
+[Elasticsearch-hadoop](notebooks/RNotebook-ISSRE-Elasticsearch-hadoop.nb.html)
 
 
 
