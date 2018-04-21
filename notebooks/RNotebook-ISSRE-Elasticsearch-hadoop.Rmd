@@ -70,8 +70,8 @@ ggpareto <- function(x, title) {
 ```
 
 
-###Dataset:
-Aqui é apresentado o raw ("cru") dataset que foi discutido na ultima reunião conforme planilha que o Biel gerou no Drive. Tal dataset consiste na relação entre os valores de mudanças e inserção de bugs commit. Segue uma descrição das respectivas colunas:
+###Raw Dataset:
+Aqui é apresentado o dataset que foi discutido na ultima reunião conforme planilha que o Biel gerou no Google Drive. Tal dataset consiste na relação entre os valores de mudanças e inserção de bugs commit. Segue uma descrição das respectivas colunas:
 
 **NoCommits** : A Quantidade de commits (k) que a time serie possui;
 
@@ -88,14 +88,14 @@ Aqui é apresentado o raw ("cru") dataset que foi discutido na ultima reunião c
 **percChanges** : Percentual de mudanças [Formula: noChanges/sum(noChanges) ];
 
 
-Obs: Ressaltando que os dados estão desnormalizados, portanto há uma repetição de alguns valores em algumas colunas, ex: NoTimeSeries, na linha 2 e 3 existem 1681 de maneira repetida, mas no cálculo é utilizado somente um valor, visto que existem somente 1681 time series com 2 commits.
+Obs: Ressaltando que os dados no dataset encontram-se desnormalizados, portanto há uma possibilidade de repetição  de valores em algumas colunas, ex: na coluna NoTimeSeries, na linha 2 e 3 existe o valor 1681 de maneira repetida, mas no cálculo das respectivas metricas é utilizado somente um valor, visto que existem somente 1681 time series com 2 commits e não o dobro (soma das linhas 2 e 3).
 
 ```{r}
 data_changes
 
 ```
 
-###Dataset Calculado:
+###Final Dataset:
 Aqui é apresentado o dataset com as metricas calculadas com o objetivo de gerar os respectivos gráficos presentes na Goal 1 e 2. Segue uma descrição das colunas e suas respectivas formulas:
 
 **NoCommits** : A Quantidade de commits (k) que a time serie possui;
@@ -124,7 +124,7 @@ Aqui é apresentado o dataset com as metricas calculadas com o objetivo de gerar
 
 **PercChanges**: Percentual de mudanças [Formula:  (noChanges / sum(noChanges)) * 100];
 
-Obs: Como os dados anteriores tem algumas colunas desnormalizadas (NoTimeSeries), algumas formulas contém o valor max do respectiva coluna dentro do agrupamento definido.
+Obs: Conforme explicado, os dados anteriores (raw dataset) tem algumas colunas desnormalizadas (NoTimeSeries), portanto algumas formulas contém o valor maximo da respectiva coluna dentro do agrupamento definido.
 
 ```{r}
 data_plot <- data_changes %>%
