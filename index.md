@@ -14,8 +14,13 @@ Link to the [Notebook1-ICSME](notebooks/RNotebook_sc_meeting13032018.nb.html)
 
 **ISSRE 2018 - Notebooks by projects:**
 
-[Elasticsearch-hadoop](notebooks/RNotebook-ISSRE-Elasticsearch-hadoop.nb.html)
+[Elasticsearch-hadoop](notebooks/ISSRE/RNotebook-ISSRE-Elasticsearch-hadoop.nb.html)
 
+[Fresco](notebooks/ISSRE/RNotebook-ISSRE-Fresco.nb.html)
+
+[Okhttp](notebooks/ISSRE/RNotebook-ISSRE-Okhttp.nb.html)
+
+[Signal-Android](notebooks/ISSRE/RNotebook-ISSRE-Signal-Android.nb.html)
 
 
 ### Support or Contact
