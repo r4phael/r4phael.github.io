@@ -26,7 +26,7 @@ Link to the [Notebook1-ICSME](notebooks/RNotebook_sc_meeting13032018.nb.html)
 
 [Material Drawer](notebooks/ISSRE/RNotebook-ISSRE-Material Drawer.nb.html)
 
-[HikariCP](notebooks/ISSRE/RNotebook-ISSRE-HikariCP.nb.html)
+[HikariCP](notebooks/ISSRE/RNotebook-ISSRE-Hikari-CP.nb.html)
 
 ### Support or Contact
 Jairo Souza
