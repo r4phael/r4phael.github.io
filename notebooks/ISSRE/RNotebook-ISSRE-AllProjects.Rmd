@@ -1,0 +1,507 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+#Importing functions:
+source("~/R/software-history/scripts/utils.R")
+
+#Rqs Results
+filenames = list.files(
+  path = paste0("~/R/analysis/results_rqs"),
+  full.names = TRUE,
+  recursive = TRUE
+)
+
+results_frame <- do.call(rbind, lapply(filenames, function(i) {
+  read.csv(i, stringsAsFactors = FALSE)
+}))
+
+
+#Insertions
+filenames = list.files(
+  path = paste0("~/R/analysis/results_insertions"),
+  full.names = TRUE,
+  recursive = TRUE
+)
+
+
+methods_insertions <- do.call(rbind, lapply(filenames, function(i) {
+  read.csv(i, stringsAsFactors = FALSE)
+}))
+
+
+#Total Insertions
+filenames = list.files(
+  path = paste0("~/R/analysis/results"),
+  full.names = TRUE,
+  recursive = TRUE
+)
+
+methods_total <- do.call(rbind, lapply(filenames, function(i) {
+  read.csv(i, stringsAsFactors = FALSE)
+}))
+
+#Final Data Frame
+data_plot <- as.data.frame(
+  results_frame %>%
+    dplyr::group_by(Project, NoCommits) %>%
+    dplyr::summarise(
+      noTimeSeries = max(noTimeSeries),
+      noChanges = sum(noChanges),
+      noBugsIns = sum(noBugsIns),
+      BugsByTs = sum(noBugsIns) / max(noTimeSeries),
+      BugsByChanges = sum(noBugsIns) / sum(noChanges),
+      ChangesByTs = sum(noChanges) / max(noTimeSeries)
+    ) %>%
+    dplyr::mutate(
+      PercBugsByTs = (BugsByTs / sum(BugsByTs)) * 100,
+      PercBugsByCommit = (noBugsIns / sum(noBugsIns)) * 100,
+      PercBugsByChanges = (BugsByChanges / sum(BugsByChanges)) * 100,
+      PercTs = (noTimeSeries / sum(noTimeSeries)) * 100,
+      PercChangesByTs = (ChangesByTs / sum(ChangesByTs)) * 100,
+      PercChanges = (noChanges / sum(noChanges)) * 100
+    ) %>%
+    dplyr::ungroup()
+)
+
+data_plot[data_plot$Project == "Elasticsearch-hadoop",c("Project")] <- "Es. Hadoop"
+data_plot[data_plot$Project == "Signal-Android",c("Project")] <- "S. Android"
+data_plot[data_plot$Project == "Material Drawer",c("Project")] <- "M. Drawer"
+data_plot[data_plot$Project == "Material-Dialogs",c("Project")] <- "M. Dialogs"
+
+projects <- unique(data_plot$Project)
+```
+
+
+
+### (G1)To investigate the occurrence of commits along the history; 
+####(Q1.1) How often are commits performed? 
+
+```{r}
+
+p1 <- ggplot(filter(data_plot, Project %in% projects[1:4], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercTs,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+
+p2 <- ggplot(filter(data_plot, Project %in% projects[5:7], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercTs,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+
+ggarrange(p1 , p2 , ncol = 1, nrow = 2)
+```
+
+
+####(Q1.2) How often are changes performed among commits?
+
+```{r}
+
+#Percentual
+p1 <- ggplot(filter(data_plot, Project %in% projects[1:4], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercChanges,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+
+p2 <- ggplot(filter(data_plot, Project %in% projects[5:7], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercChanges,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+
+ggarrange(p1 , p2 , ncol = 1, nrow = 2)
+```
+
+
+####(Q1.3) How often are changes performed among time series?
+
+```{r}
+
+#Percentual:
+p1 <- ggplot(filter(data_plot, Project %in% projects[1:4], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercChangesByTs,group=Project), position = "dodge", stat = "identity") +
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+
+p2 <- ggplot(filter(data_plot, Project %in% projects[5:7], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercChangesByTs,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+ggarrange(p1 , p2 , ncol = 1, nrow = 2)
+```
+
+
+### (G2)To assess the introduction of bugs along the history; 
+
+#### (Q2.1) How often are bugs introduced among the commits?
+
+```{r}
+#Perc
+p1 <- ggplot(filter(data_plot, Project %in% projects[1:4], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercBugsByCommit,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+
+p2 <- ggplot(filter(data_plot, Project %in% projects[5:7], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercBugsByCommit,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+ggarrange(p1 , p2 , ncol = 1, nrow = 2)
+```
+
+
+
+#### (Q2.2) How often are bugs introduced among the time series?
+
+```{r}
+
+#Percentual:
+p1 <- ggplot(filter(data_plot, Project %in% projects[1:4], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercBugsByTs,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+
+p2 <- ggplot(filter(data_plot, Project %in% projects[5:7], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercBugsByTs,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+ggarrange(p1 , p2 , ncol = 1, nrow = 2)
+```
+
+
+#### (Q2.3) How often are bugs introduced among the changes?
+
+```{r}
+#Perc:
+p1 <- ggplot(filter(data_plot, Project %in% projects[1:4], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercBugsByChanges,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+p2 <- ggplot(filter(data_plot, Project %in% projects[5:7], NoCommits <= 10 )) +
+  geom_bar(aes(x=NoCommits,y=PercBugsByChanges,group=Project), position = "dodge", stat = "identity")+
+  facet_grid(.~Project,scales="free") + 
+  theme(legend.position= c(0.7, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  ylab("Percentual") + scale_x_discrete(name ="Number of Commits", limits=seq(1,10)) +
+  #theme(axis.title.x=element_blank(), axis.title.y = element_blank()) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        axis.text.x = element_text(colour="grey20",size=5,hjust=.5,vjust=.5,face="plain"))
+
+ggarrange(p1 , p2 , ncol = 1, nrow = 2)
+```
+
+
+###(G3) To analyse the kind of changes are mostly related to the bugs insertion;
+
+####(Q3.1) Which are the types (Add/Del) of changes more frequent in the bugs insertion? 
+
+```{r}
+#Changes Chart
+methods_changes <- filter(methods_insertions, changeType != 'All', groupMetric == 'All', Metric == 'All')
+
+methods_changes[methods_changes$changeType == "changeMetricsAddition", c("changeType")] <- "Addition"
+methods_changes[methods_changes$changeType == "changeMetricsDeletion", c("changeType")] <- "Deletion"
+
+methods_changes[methods_changes$Project == "Elasticsearch-hadoop",c("Project")] <- "Es. Hadoop"
+methods_changes[methods_changes$Project == "Signal-Android",c("Project")] <- "S. Android"
+methods_changes[methods_changes$Project == "Material Drawer",c("Project")] <- "M. Drawer"
+methods_changes[methods_changes$Project == "Material-Dialogs",c("Project")] <- "M. Dialogs"
+
+cbPalette <- c("#009E73", "#F15854")
+
+methods_changes <-  as.data.frame(
+  methods_changes %>%
+    dplyr::group_by(Project, changeType) %>%
+    dplyr::summarise(totalChanges = sum(Count)) %>%
+    mutate(Percentual = totalChanges / sum(totalChanges) * 100) %>%
+    ungroup()
+)
+
+ggplot(methods_changes) +
+  geom_bar(aes(x = Project, y = Percentual, fill = changeType, group = changeType), position = "dodge", stat = "identity") +
+  geom_text( aes(x = Project, y = Percentual, label = round(Percentual), group = changeType),  
+             check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) + #scale_fill_grey() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position= c(0.82, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        axis.title.x=element_blank(), legend.text=element_text(size=7), legend.background = element_rect(fill = "transparent", colour = NA) ) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) +
+  scale_fill_manual(values=cbPalette)
+```
+
+
+####(Q3.2) Which are the metrics groups more frequent in the bugs insertion? 
+
+```{r}
+
+methods_groups<- filter(methods_insertions, groupMetric != "RM", changeType == 'All', groupMetric != 'All', Metric == 'All')
+
+#reorder(methods_groups$Changes, methods_groups$groupMetric, function(x)-length(x))
+
+methods_groups[methods_groups$Project == "Elasticsearch-hadoop",c("Project")] <- "Es. Hadoop"
+methods_groups[methods_groups$Project == "Signal-Android",c("Project")] <- "S. Android"
+methods_groups[methods_groups$Project == "Material Drawer",c("Project")] <- "M. Drawer"
+methods_groups[methods_groups$Project == "Material-Dialogs",c("Project")] <- "M. Dialogs"
+
+cbPalette <- c("#4D4D4D", "#5DA5DA", "#FAA43A", "#B276B2", "#F15854", "#009E73", "#F0E442", "#0072B2", "#999999", "#993300")
+
+
+methods_groups <-  as.data.frame(
+  methods_groups %>%
+    dplyr::group_by(Project, groupMetric) %>%
+    dplyr::summarise(totalTs = sum(Count)) %>%
+    mutate(Percentual = totalTs / sum(totalTs) * 100) %>%
+    ungroup()
+)
+
+methods_groups$rank <- ave(methods_groups$totalTs, methods_groups$Project, FUN = function(x) rank(-x))
+
+barplot1 <- ggplot(filter(methods_groups, Project %in% projects[1:5], rank <=5)) +
+  geom_bar(aes(x = Project, y = totalTs, fill = groupMetric, group = groupMetric), position = "dodge", stat = "identity") +
+  geom_text( aes(x = Project, y = totalTs, label = round(totalTs), group = groupMetric),  
+             check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) + #scale_fill_grey() + 
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position= c(0.40, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        axis.title.x=element_blank(), legend.text=element_text(size=6), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Frequency") +
+  #coord_cartesian(xlim=c(1,5), ylim=c(0, 50)) +
+  scale_fill_manual(values=cbPalette)
+
+barplot2 <- ggplot(filter(methods_groups, Project %in% projects[6:10], rank <=5)) +
+  geom_bar(aes(x = Project, y = totalTs, fill = groupMetric, group = groupMetric), position = "dodge", stat = "identity") +
+  geom_text( aes(x = Project, y = totalTs, label = round(totalTs), group = groupMetric),  
+             check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) + #scale_fill_grey() + 
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position= c(0.40, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        axis.title.x=element_blank(), legend.text=element_text(size=6), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Frequency") +
+  #coord_cartesian(xlim=c(1,5), ylim=c(0, 50)) +
+  scale_fill_manual(values=cbPalette)
+
+ggarrange(barplot1, barplot2, ncol = 1, nrow = 2, common.legend = TRUE)
+
+```
+
+
+####(Q3.3) Which are the change metrics more frequent in the bugs insertion? 
+
+```{r}
+
+#Filter:D
+methods_ind <- filter(methods_insertions, groupMetric != "RM", changeType == 'All', groupMetric != 'All', Metric != 'All')
+
+#reorder(methods_groups$Changes, methods_groups$groupMetric, function(x)-length(x))
+
+methods_ind[methods_ind$Project == "Elasticsearch-hadoop",c("Project")] <- "Es. Hadoop"
+methods_ind[methods_ind$Project == "Signal-Android",c("Project")] <- "S. Android"
+methods_ind[methods_ind$Project == "Material Drawer",c("Project")] <- "M. Drawer"
+methods_ind[methods_ind$Project == "Material-Dialogs",c("Project")] <- "M. Dialogs"
+
+cbPalette <- c("#4D4D4D", "#5DA5DA", "#FAA43A", "#B276B2", "#F15854", "#009E73", "#F0E442", "#0072B2", "#999999", "#993300")
+
+
+methods_ind <-  as.data.frame(
+  methods_ind %>%
+    dplyr::group_by(Project, Metric) %>%
+    dplyr::summarise(totalTs = sum(Count)) %>%
+    mutate(Percentual = totalTs / sum(totalTs) * 100) %>%
+    ungroup()
+)
+
+methods_ind$rank <- ave(methods_ind$totalTs, methods_ind$Project, FUN = function(x) rank(-x))
+
+barplot1 <- ggplot(filter(methods_ind, Project %in% projects[1:5], rank <=5)) +
+  geom_bar(aes(x = Project, y = totalTs, fill = Metric, group = Metric), position = "dodge", stat = "identity") +
+  #geom_text( aes(x = Project, y = totalTs, label = round(totalTs), group = Metric),  
+  #           check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) + #scale_fill_grey() + 
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position= c(0.40, 0.95), legend.direction="horizontal", legend.title = element_blank(),
+        axis.title.x=element_blank(), legend.text=element_text(size=4), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Frequency") +
+  #coord_cartesian(xlim=c(1,5), ylim=c(0, 50)) +
+  scale_fill_manual(values=cbPalette)
+
+barplot2 <- ggplot(filter(methods_ind, Project %in% projects[6:10], rank <=5)) +
+  geom_bar(aes(x = Project, y = totalTs, fill = Metric, group = Metric), position = "dodge", stat = "identity") +
+  #geom_text( aes(x = Project, y = totalTs, label = round(totalTs), group = Metric),  
+  #           check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) + #scale_fill_grey() + 
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position= c(0.40, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
+        axis.title.x=element_blank(), legend.text=element_text(size=6), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) +
+  ylab("Frequency") +
+  #coord_cartesian(xlim=c(1,5), ylim=c(0, 50)) +
+  scale_fill_manual(values=cbPalette)
+
+ggarrange(barplot1, barplot2, ncol = 1, nrow = 2, common.legend = TRUE)
+```
+
+### (G4) To analyse the relation between the history of changes and bugs;
+
+#### (Q4.1) Is a high number of changes an indicative of bugs introduction?
+
+```{r}
+
+#Changes Chart
+methods_changes <- filter(methods_total, changeType == 'All', groupMetric == 'All', Metric == 'All')
+
+#Calculing peaks
+methods_changes[,"totalofBugsIns"] <- maply(methods_changes$bugsInsertion, getTotalBugsIns)
+
+#Filtering only ts with bugs and more with one commit
+methods_changes <- filter(methods_changes, totalofBugsIns > 0, NtimeofCommits > 1)
+
+#Generating id of data frame
+methods_changes <- genId(methods_changes)
+
+#List of changes and bugs insertions
+listofPeaks <<- methods_changes$elementsValue
+listofBugsIns <<- methods_changes$bugsInsertion
+
+#Creating columns
+methods_changes[,c("peaks", "tp", "fp", "fn", "tn", "Precision", "Recall", "Fmeasure")] <- 0 
+
+#calculating confusion matrix
+methods_changes[,c("peaks", "tp", "fp", "fn", "tn", "Precision", "Recall", "Fmeasure")]  <-  plyr::ldply(methods_changes$id, getStatsProcess)
+
+#Grouping data
+confusion_matrix <- as.data.frame(
+  methods_changes %>%
+    dplyr::group_by(Project) %>%
+    dplyr::summarise(
+      Precision = median(Precision, na.rm = TRUE),
+      Recall = median(Recall, na.rm = TRUE),
+      Fmeasure = median(Fmeasure, na.rm = TRUE)
+    )
+)
+
+#Pivot data
+data_plot <- melt(confusion_matrix, id = (c("Project")))
+colnames(data_plot) <- c("Project", "Measure", "Values")
+
+#Ploting results
+ggplot(data_plot) +
+  geom_bar(aes(x = Project, y = Values, fill = Measure, group = Measure), position = "dodge", stat = "identity") +
+  geom_text(aes(x = Project, y = Values, label = round(Values), group = Measure),  
+             check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 3) + #scale_fill_grey() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.direction="vertical", legend.title = element_blank(),
+        axis.title.x=element_blank(), legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA)) +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent", colour = NA)) +
+  #ylab("Frequency") +
+  #coord_cartesian(xlim=c(1,5), ylim=c(0, 50)) +
+  scale_fill_manual(values=cbPalette)
+
+```
+
+#### Results 
+```{r}
+confusion_matrix
+```
+

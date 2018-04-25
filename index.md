@@ -14,6 +14,8 @@ Link to the [Notebook1-ICSME](notebooks/RNotebook_sc_meeting13032018.nb.html)
 
 **ISSRE 2018 - Notebooks by projects:**
 
+[All Projects](notebooks/ISSRE/RNotebook-ISSRE-AllProjects.nb.html)
+
 [Elasticsearch-hadoop](notebooks/ISSRE/RNotebook-ISSRE-Elasticsearch-hadoop.nb.html)
 
 [Fresco](notebooks/ISSRE/RNotebook-ISSRE-Fresco.nb.html)
@@ -26,7 +28,7 @@ Link to the [Notebook1-ICSME](notebooks/RNotebook_sc_meeting13032018.nb.html)
 
 [Material Drawer](notebooks/ISSRE/RNotebook-ISSRE-Material Drawer.nb.html)
 
-[HikariCP](notebooks/ISSRE/RNotebook-ISSRE-Hikari-CP.nb.html)
+[Hikari-CP](notebooks/ISSRE/RNotebook-ISSRE-Hikari-CP.nb.html)
 
 ### Support or Contact
 Jairo Souza
