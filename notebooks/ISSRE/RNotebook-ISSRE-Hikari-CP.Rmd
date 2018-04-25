@@ -3,13 +3,13 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-### Project Fresco
+### Project HikariCP
 
 ```{r}
 #Importing functions:
 source("~/R/software-history/scripts/utils.R")
 
-project <- "Fresco"
+project <- "HikariCP"
 
 #Csv's:
 results_frame <- 

@@ -22,6 +22,11 @@ Link to the [Notebook1-ICSME](notebooks/RNotebook_sc_meeting13032018.nb.html)
 
 [Signal-Android](notebooks/ISSRE/RNotebook-ISSRE-Signal-Android.nb.html)
 
+[Material-Dialogs](notebooks/ISSRE/RNotebook-ISSRE-Material-Dialogs.nb.html)
+
+[Material Drawer](notebooks/ISSRE/RNotebook-ISSRE-Material Drawer.nb.html)
+
+[HikariCP](notebooks/ISSRE/RNotebook-ISSRE-HikariCP.nb.html)
 
 ### Support or Contact
 Jairo Souza
