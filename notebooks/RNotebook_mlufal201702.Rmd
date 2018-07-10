@@ -3,19 +3,41 @@ title: "Machine Learning Project - UFAL 2017.2"
 output: html_notebook
 ---
 
-O Objetivo geral do estudo é gerar um modelo de predição capaz de detectar bugs em alterações de códigos na linguagem C. 
 
-O Dataset contém metricas de software coletadas via [API Understand] (https://scitools.com/feature/metrics/) de Funções sem bugs de projetos open source presentes no Github escrito na linguagem C.
+O objetivo desse relatório técnico é explorar a prática de técnicas de aprendizagem de máquina em um dataset contendo dados métricas de software de projetos open source. Para realização do experimento foi utilizada a Linguagem R juntamente do auxilio de algumas bibliotecas disponíveis no repositório [RCRAN] (https://cran.r-project.org/). 
 
-####Projetos Utilizados:
+O relatório está estruturado da seguinte forma: 
+
+- Introdução e Descrição do Dataset;
+- Preparação dos Dados;
+- Construção do Modelo;
+- Resultados;
+- Conclusão.
+
+###Introdução
+
+O Objetivo geral do estudo é gerar um modelo de predição utilizando métricas de software capaz de detectar bugs em alterações de códigos em funções na linguagem C. O Modelo irá utilizar diferentes técnicas de aprendizagem de máquina com o intuito de gerar um modelo preditivo capaz de prever algum possível bug em futuras alterações nesses projetos. Portanto, a grande contribuição do modelo é de evitar um maior esforço de correções em fases de desenvolvimento críticas através da predição de bugs a partir de alterações de trechos de código durante a fase de desenvolvimento.
+
+O Dataset contém métricas de software coletadas via [API Understand] (https://scitools.com/feature/metrics/) de Funções de projetos open source presentes no Github escrito na linguagem C. Segue os projetos Utilizados:
+
 - [Glibc](https://github.com/lattera/glibc) - The GNU C Library is the standard system C library for all GNU systems
 - [Httpd](https://github.com/apache/httpd) - Web Server
 - [Kernel](https://github.com/torvalds/linux) - Kernel Linux
 - [OpenVPN](https://github.com/mozilla/openvpn) - Mozilla OpenVPN
 - [Xen](https://github.com/xen-project/xen) - Virtual Machine Monitor (VMM)
 
-Descrição do Dataset:
 
+As métricas de software são divididas em 3 categorias:
+
+- Métricas de Complexidade: São métricas relacionadas a complexidade do código. Ex: A média da complexidade ciclomática para todas as funções ou métodos aninhados.
+
+- Métricas de Tamanho: São métricas relacionadas ao tamanho do software. Ex: Quantidade de linhas de código de uma função específica.
+
+- Métricas de Orientação á Objetos: São métricas relacionadas ao paradigma de orientação á objetos. Ex: Número de classes e métodos.
+
+**Obs**: As métricas de orientação a objetos não estão presentes no dataset do estudo, visto que a linguagem C não é uma linguagem orientada a objetos.
+
+Na tabela abaixo, cada linha representa uma função do projeto contendo os valores das respectivas métricas de software. As diferentes métricas são exibidas da primeira a 27º coluna. Já na 28º coluna está presente a classificação daquela função, ou seja, se a mesma possui um bug (**VULNERABLE**) ou não (**NEUTRAL**).
 
 ```{r, echo=FALSE}
 input_sample <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/balanced/glibc_data_balanced.csv", stringsAsFactors = FALSE)
@@ -23,23 +45,90 @@ head(input_sample)
 
 ```
 
+###Preparação dos dados
 
-Importando Packages de Machine Learning:
+Nessa fase os dados são tratados e preparados antes da utilização dos mesmo nos modelos de aprendizagem de máquina. Vale ressaltar que essa é uma das principais fases de construção de um modelo, visto que os algoritmos já estão prontos e funcionam diretamente de acordo com os inputs apresentados. Portanto, a qualidade dos dados influencia diretamente a qualidade do modelo.
+
+####Seleção de Features:
+
+Em todo estudo é importante realizar uma seleção das features mais relevantes, caso haja possibilidade, com o intuito de obter diversas vantagens como:
+
+- Diminuição do tempo de treinamento;
+- Simplificação do modelo que deve levar uma maior interpretabilidade pelos especialistas da área de neǵocio;
+- Aumento da generalização dos dados. Sabe-se que em modelos de predição devemos evitar uma generalização/especialização do modelo. Portanto é um grande desafio encontra esse *trade-off* entre um modelo que não seja especifico um um determinado conjunto de treinamento, além de não ser muito generalista a ponto de não conseguir classificar corretamente os dados.
+
+Durante a fase de preparação, é realizada uma tarefa de classificação dos valores individuais de cada feature. Os valores estão relacionados ao seu grau de importância de acordo com o método escolhido. Os Métodos escolhidos foram:
+
+- *Chi Squared*;
+- *Information Gain*.
+
+Basicamente os dois testes acimas consistem em determinar a dependência entre duas variáveis. Nesse caso, analisar qual variável dependente (classificação do bug) está mais relacionada com a variabel independente (métricas de software).
+
+Através da Tabela abaixo é possíveis visualizar os valores de cada feature no dataset do estudo. Os dois algoritmos: *Information Gain* e *Chi Squared* classificaram a métrica *AltCountLineCode* (Linhas de código alteradas) contendo a maioria das informações sobre a variável-alvo *affected* com um valor de 0.38 e 0.77 respectivamente.
 
 ```{r}
-library(RWeka)
-library(e1071)
-library(gmodels)
-library(C50)
-library(caret)
-library(irr)
-library(randomForest)
-library(mlr)
-library(evaluate)
-library(FSelector)
+features <- makeClassifTask(id = deparse(substitute(input_sample)), input_sample, colnames(input_sample)[28] )
+featuresSelection = generateFilterValuesData(features, method = c("information.gain", "chi.squared"))
+featuresSelection$data
 ```
 
-Funções para Calcular a [Efetividade](https://en.wikipedia.org/wiki/Precision_and_recall) do Modelo Baseado em [K-fold Cross Validation](https://en.wikipedia.org/wiki/Cross-validation_(statistics))
+Também é possivel avaliar a distribuição dos resultados dos métodos de seleção de features supracitados através de *boxplots*:
+
+```{r}
+par(mfrow=c(1,2))
+for(i in 3:4) {
+	boxplot(featuresSelection$data[i], main=names(featuresSelection$data)[i])
+}
+```
+
+Outra maneira de apresentar a distribuição é através de gráfico de barras - *barplots*. Na imagem abaixo o eixo x corresponde as features utilizadas no dataset e o eixo y ao seu grau de importância respectivamente. Como pode ser visto as variáveis. AltCountLineCode e CountLineCode tiveram resultados melhores que as demais variáveis.
+
+```{r}
+plotFilterValues(featuresSelection)
+```
+
+
+#### Balanceamento dos Dados
+
+Outro passo importante na fase de preparação dos dados está relacionada ao balanceamento dos dados. Essa fase gera algumas controvérsias na literatura, visto que alguns autores defendem que o balanceamento pode gerar um viés definitivo e permanente ao dataset, enquanto outros enfatizam que a exclusão de dados deve ser evitada. Porém, o nosso estudo está presente em um cenário de detecção de anomalias. Portanto, em cenários onde a detecção de anomalias é crucial como transações fraudulentas nos bancos, identificação de doenças raras, etc... os dados devem ser balanceados. Nessa situação, o não balanceamento dos dado em um modelo preditivo desenvolvido com algoritmos de aprendizado convencional pode ser tendencioso e impreciso. 
+
+Para avaliar tal impacto, abaixo será apresentado um gráfico contendo a distribuição das classes do dois tipos de conjunto de dados. Na imagem é apresentado dois gráficos de barras que consistem em dados balanceados e não balanceados. Os dados balanceados possuem o numero de classes iguais, ou seja, temos as mesma quantidade de linhas de métricas de softwares de funções com bugs e sem bugs respectivamente. Já nos dados não balanceados o notamos uma menor existência de classes relacionadas a não existência de bugs em funções de código em C nos projetos analisados.
+
+
+
+```{r}
+input_balanced <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/balanced/glibc_data_balanced.csv", stringsAsFactors = FALSE)
+input_unbalanced <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/unbalanced/glibc_data.csv", stringsAsFactors = FALSE)
+# Criando Histogramas
+par(mfrow=c(1,2))
+barplot(table(input_balanced$Affected), main = "Balanced")
+barplot(table(input_unbalanced$Affected), main = "Unbalanced")
+
+
+```
+
+### Construção do Modelo
+
+O primeiro passo concistem em importar packages que serão utilizadas no repositório [RCRAN] (https://cran.r-project.org/). Aqui são importadas packages relacionadas aos modelos de aprendizagem de máquina utlizados (arvores de decisão, regras, etc).
+
+```{r}
+suppressMessages(library(RWeka))
+suppressMessages(library(e1071))
+suppressMessages(library(gmodels))
+suppressMessages(library(C50))
+suppressMessages(library(caret))
+suppressMessages(library(irr))
+suppressMessages(library(randomForest))
+suppressMessages(library(mlr))
+suppressMessages(library(evaluate))
+suppressMessages(library(FSelector))
+```
+
+O segundo passo consistem em utilizar funções auxiliares que irão calcular a efetividade do nosso modelo. Nosso modelo será treinado utilizando o método de *K-fold Cross Validation* e a sua efetividade será demonstrada através de uma matriz de confusão (*confusion matrix*).
+
+A técnica validação cruzada em *k-fold* (*K-fold Cross Validation*), consiste em dividir o conjunto total de dados em k subconjuntos mutuamente exclusivos do mesmo tamanho e, a partir disto, um subconjunto é utilizado para teste e os k-1 restantes são utilizados para estimação dos parâmetros. Esse processo será realizado 10 vezes durante o nosso estudo (*k = 10*). No final das 10 iterações será calculada a acurácia do modelo com o intuito de obter uma medida mais confiável.
+
+Já a Matriz de confusão (*Confusion Matrix*) tem como objetivo calcular e representar a performance do algoritmo. Onde cada linha linha da matriz representa as instâncias em uma classe prevista, enquanto cada coluna representa as instâncias em uma classe real. Através da matriz de confusão nós podemos calcular diferentes medidas relacionadas ao grau de acertos e erros do nosso modelo.
 
   
 ```{r}
@@ -96,7 +185,8 @@ measures <- function(test, pred) {
 }
 ```
 
-###Algoritmos e Técnicas de Machine Learning Utilizadas no Projeto:
+Nesse trecho abaixo são criadas as funções auxiliares contendo os Algoritmos e Técnicas de Machine Learning Utilizadas no Projeto, são eles:
+
 - J48[Arvore de Decisão]
 - NaiveBayes 
 - SVM
@@ -104,7 +194,7 @@ measures <- function(test, pred) {
 - RandomForest [Arvores de Decisão]
 - C50 [Arvore de Decisão]
 
-As funções abaixo realizam o treinamento (train) e testes do nosso modelo (model) de detecção de bugs baseados em Metricas de Software. Lembrando que o treinamento e testes são utilizadas as técnicas de K-fold cross validation com 10 folds e calculo da efetividade.
+As funções abaixo realizam o treinamento (train) e testes do nosso modelo (model) de detecção de bugs baseados em Metricas de Software. Lembrando que o treinamento e testes são utilizadas as técnicas de K-fold cross validation com 10 folds.
 
 ```{r}
 
@@ -188,72 +278,39 @@ executeC50 <- function(dataset, folds) {
     results <- measures(test$Affected, pred)
     return(results)
   })
+}
   
+#Aux function to create the data frame
+createDf <- function (){
+  results <<-
+    data.frame(
+      Project = character(),
+      Algorithm = character(),
+      Precision = character(),
+      Recall = character(),
+      "F-Measure" = character()
+    )
 }
-```
 
-###Seleção de Features:
-
-Aqui é realizada uma tarefa de classificação dos valores individuais de cada feature. Tais valores estão relacionados ao seu grau de importância de acordo com o método escolhido. Os Métodos escolhidos foram:
-
-- Chi Squared
-- Information Gain
-
-Através da Tabela abaixo é possiveis visualizar os valores de cada feature dentro do dataset:
-
-```{r}
-features <- makeClassifTask(id = deparse(substitute(input_sample)), input_sample, colnames(input_sample)[28] )
-featuresSelection = generateFilterValuesData(features, method = c("information.gain", "chi.squared"))
-featuresSelection$data
-```
-
-Abaixo é possivel avaliar a distribuição dos valores dos métodos de seleção de features utilizadas gerando seus respectivos bloxplots:
-
-```{r}
-par(mfrow=c(1,2))
-for(i in 3:4) {
-	boxplot(featuresSelection$data[i], main=names(featuresSelection$data)[i])
+#Function to store the results in a data frame
+finalResults <- function(resultsAlgo, project, algo){
+  results <<-
+    rbind(
+      results,
+      data.frame(
+        "Project" = project,
+        "Algorithm" = algo,
+        "Precision" = median(sapply(resultsAlgo, "[[", 1)),
+        "Recall" = median(sapply(resultsAlgo, "[[", 2)),
+        "F-Measure" = median(sapply(resultsAlgo, "[[", 3))
+      )
+    )
 }
-```
-
-Essa distribuição também pode ser avaliada através de barplots, onde o eixo x corresponde as features utilizadas no dataset e o eixo y ao seu grau de importância respectivamente. Como pode ser visto as features AltCountLineCode e CountLineCode tiveram resultados melhores que as demais.
-
-```{r}
-plotFilterValues(featuresSelection)
-```
-
-Através da função generateFilterValuesData é possível manter somente as Features com um grau/valor de importância acima de 0.2 do método de Informação de Ganho. Esses valores podem ser filtrados por thresholds, percentuais e ranking.
-
-
-```{r}
-fv = generateFilterValuesData(features, method = "information.gain")
-filtered = filterFeatures(features, fval = fv, threshold = 0.2)
-filtered
-```
-
-
-###Balanceamento dos Dados:
-
-Temos abaixo uma gráfico contendo a distribuição das classes do dois tipos de conjunto de dados.
-
-- Balanceado: Nesse conjunto o numero de classes são iguais, ou seja, temos as mesma quantidade de linhas de metricas de softwares de funções com bugs e sem bugs respectivamente.
-- Não Balanceado: Já no conjunto não balanceado, normalmente o comportamento é de ter menos bugs ems funções de código em C nos projetos utilizados.
-
-Este problema é predominante em cenários onde a detecção de anomalias é crucial, como transações fraudulentas nos bancos, identificação de doenças raras, etc. Nessa situação, o modelo preditivo desenvolvido com algoritmos de aprendizado convencional pode ser tendencioso e impreciso. 
-
-
-```{r}
-input_balanced <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/balanced/glibc_data_balanced.csv", stringsAsFactors = FALSE)
-input_unbalanced <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/unbalanced/glibc_data.csv", stringsAsFactors = FALSE)
-# Criando Histogramas
-par(mfrow=c(1,2))
-barplot(table(input_balanced$Affected), main = "Balanced")
-barplot(table(input_unbalanced$Affected), main = "Unbalanced")
 
 
 ```
 
-Trecho responsável pela execução dos algoritmos de machine learning para os 5 projetos utilizando as técnicas supracitadas.
+Por Último, temos o procesamento dos algoritmos de aprendizagem de máquina em todos os projetos coletados.
 
 ```{r}
 filenames = list.files(path = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/balanced",
@@ -295,29 +352,67 @@ for (i in 1:length(filenames)) {
 ```
 
 
-
 ###Resultados Alcançados
 
-####Tabelas:
+A tabela abaixo contém os resultados dos modelos avaliados. Na 2ª coluna são apresentados os projetos. Na 3ª são apresentados os algoritmos. Já nas colunas 4ª,5ª e 6ª colunas são apresentados os valores referentes a precisão, recall e f-measure.
+
+A precisão é a taxa de instâncias relevantes entre as instâncias recuperadas, enquanto recall é a taxa de instâncias relevantes que foram recuperadas sobre o total quantidade de instâncias relevantes. Tanto a precisão quanto o recall são baseadas em um entendimento e medida de relevância. Já a f-measure consiste em calcular a média harmônica entre as duas.
 
 ```{r}
 resultsUnbal <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/results/ml_balanced.csv", stringsAsFactors = FALSE)
 resultsUnbal
 ```
 
-####Plots:
+Segue abaixo um gráfico de barras contendo os resultados descritos na tabela acima. O resultados demonstram que dentre todos os algoritmos analisados o técnica de classificação *Random Forest* obteve os melhores resultados com o f-measure variando em torno de 0.73 e 0.83 em todos os projetos, apesar do algoritmo Naive Bayes possui um pico de 0.95 no projeto Mozilla. Porém tal *score* é um caso isolado que não foi demonstrado nos outros projetos.
 
 ```{r}
 ggplot(resultsUnbal) +
   geom_bar(aes(x = Algorithm, y = F.Measure, fill = Project, group = Project), position = "dodge", stat = "identity") +
-  geom_text( aes(x = Algorithm, y = F.Measure, label = round(F.Measure,2), group = Project),  
-             check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 2) + #scale_fill_grey() + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  theme(legend.position= c(0.85, 0.95), legend.direction="horizontal", legend.title = element_blank(), 
-        axis.title.x=element_blank(), legend.text=element_text(size=5), legend.background = element_rect(fill = "transparent", colour = NA) ) +
-  theme(panel.grid.minor = element_blank(), 
-        panel.grid.major = element_blank(),
-        plot.background = element_rect(fill = "transparent", colour = NA))
+  geom_text( aes(x = Algorithm, y = F.Measure, label = round(F.Measure,2), group = Project),
+             check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 2)
 ```
 
-Citar Literaruta (Revisão de Literatura)
+
+A tabela abaixo contém os resultados utilizando a técnica de seleção de dados *Information Gain* presentes na seção de tratamento de dados (#2) mantendo somente as *features* com um grau/valor de importância acima de 0.2.
+
+
+```{r}
+resultsFeatures <- read.csv(file = "/home/r4ph/R/machine-learning-ufal/datasets/vulnerability/results/ml_features.csv", stringsAsFactors = FALSE)
+resultsFeatures
+```
+
+Segue abaixo um gráfico de barras contendo os resultados descritos na tabela acima somente para as features que tiveram o valor de ganho de informação acima do *threshold* (0.2). O resultados revelam que dentre todos os algoritmos analisados o técnica de classificação *Random Forest* obteve os melhores resultados com o f-measure variando em torno de 0.71 e 0.88 em todos os projetos.
+
+Um finding que deve ser ressaltado é de que utilizando a técnica de seleção de features, alguns algoritmos tiveram seus resultados melhorados em relação aos resultados anteriores (sem a técnica). Curiosamente, os algoritmos que tiveram um ligeira melhora são as técnicas relacionadas a árvore de decisão, porém os outros algoritmos como SVM e NaiveBayes tiveram um pequena redução da efetividade em termos gerais.
+
+```{r}
+ggplot(resultsFeatures) +
+  geom_bar(aes(x = Algorithm, y = F.Measure, fill = Project, group = Project), position = "dodge", stat = "identity") +
+  geom_text( aes(x = Algorithm, y = F.Measure, label = round(F.Measure,2), group = Project),
+             check_overlap = TRUE, position = position_dodge(width = 1), vjust = -0.5, size = 2)
+```
+
+
+
+### Conclusão
+
+Técnicas de predição de bugs são de grande importância na área de engenharia de software, visto que podem levar a uma diminuição de custos e esforços por desenvolvedores, gerentes e envolvidos no ciclo de desenvolvimento. O presente trabalho procurou avaliar diferentes algoritmos de aprendizagem de máquina em métricas de software presentes em funções da linguagem C em 5 projetos. 
+
+Os resultados relevam que o modelo que utiliza o algoritmo *Ramdom Forest* teve foi mais eficiente dentre os projetos analisados. Esses resultados se assemelham a trabalhos anteriores presentes na literatura [1] que também utilizam métricas de software como input. Já em relação aos resultados dos algoritmos entre utilizando técnicas de seleção obtivemos uma ligeira melhora nos algoritmos que estão relacionados a técnica de arvores de decisão.
+
+
+### Referências
+
+[1]Ruchika Malhotra. 2015. A systematic review of machine learning techniques for software fault prediction. Appl. Soft Comput. 27, C (February 2015), 504-518. DOI=http://dx.doi.org/10.1016/j.asoc.2014.11.023
+
+[2]Witten, I. H.; Frank, E.; Hall, M. A. Data Mining: Pratical Machine Learning Tools and Techniques.
+Elsevier. 2011
+
+[3]Fischetti, T. Data Analysis with R. Packt Publishing. 2015
+
+[4] (https://mlr-org.github.io/mlr/articles/tutorial/devel/feature_selection.html)
+
+[5] (https://matloff.wordpress.com/2015/09/29/unbalanced-data-is-a-problem-no-balanced-data-is-worse/)
+
+[6] (https://www.rdocumentation.org/)
+

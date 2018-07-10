@@ -1,0 +1,69 @@
+---
+title: "Software History - 1 Insertion Point"
+output: html_notebook
+---
+
+##RQ1 How long is the history of software methods?
+
+###Number of Commits
+
+![Caption for the picture.](/home/r4ph/R/analysis/new/plots/barplot_q11.png)
+
+
+###Commits Time
+
+```{r}
+rq12 <- read.csv(file = "/home/r4ph/R/analysis/new/plots/table_rq12.csv", stringsAsFactors = FALSE)
+
+colnames(rq12)<- c("Projects","1st.Q", "2st.Q", "3st.Q", "4st.Q", "5st.Q", "SD1-5", "SD2-5")
+
+rq12
+```
+
+###Number of Changes
+
+![Caption for the picture.](/home/r4ph/R/analysis/new/plots/barplot_q13.png)
+
+
+##RQ1 What is the frequency of bug-introduction?
+
+###Bugs Introduction by Commit
+![Caption for the picture.](/home/r4ph/R/analysis/new/plots/barplot_q21.png)
+
+###Bugs Introduction Time
+
+```{r}
+rq22 <- read.csv(file = "/home/r4ph/R/analysis/new/plots/table_rq12.csv", stringsAsFactors = FALSE)
+
+colnames(rq22)<- c("Projects","1st", "2st", "3st", "4st", "5st", "sd15", "st25") 
+rq22
+```
+
+
+
+###Bugs Introduction by History
+![Caption for the picture.](/home/r4ph/R/analysis/new/plots/barplot_q23.png)
+
+
+
+##RQ3 How do developers introduce bugs?
+
+
+###Add/Del
+![Caption for the picture.](/home/r4ph/R/analysis/new/plots/barplot_31.png)
+
+###Group of Changes
+![Caption for the picture.](/home/r4ph/R/analysis/new/plots/barplot_32_v2.png)
+
+###Metrics of Changes
+![Caption for the picture.](/home/r4ph/R/analysis/new/plots/barplot_33_v2.png)
+
+
+##RQ4 Does a high number of changes lead to bug-introduction?
+
+```{r}
+rq4 <- read.csv(file = "/home/r4ph/R/analysis/new/plots/confusion_matrix.csv", stringsAsFactors = FALSE)
+
+rq4
+```
+

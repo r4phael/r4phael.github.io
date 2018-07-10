@@ -505,3 +505,25 @@ ggplot(data_plot) +
 confusion_matrix
 ```
 
+
+#### (Q4.1) Is a high number of changes an indicative of bugs introduction in Granger positives cases?
+
+```{r}
+#Granger
+data_granger <- filter(methods_changes, P1 == 1, P2 == 1, P3 == 1, P4 == 1, P5 == 1, GrangerPos == 1)
+
+#Grouping data
+confusion_matrix <- as.data.frame(
+  data_granger %>%
+    dplyr::group_by(Project) %>%
+    dplyr::summarise(
+      Precision = median(Precision, na.rm = TRUE),
+      Recall = median(Recall, na.rm = TRUE),
+      Fmeasure = median(Fmeasure, na.rm = TRUE)
+    )
+)
+
+confusion_matrix
+
+```
+
