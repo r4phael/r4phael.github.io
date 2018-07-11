@@ -3,6 +3,8 @@ title: "Machine Learning Project - UFAL 2017.2"
 output: html_notebook
 ---
 
+####**Professtor**: Evandro de Barros Costa
+####**Aluno**: Jairo Raphael Moreira Correia de Souza.
 
 O objetivo desse relatório técnico é explorar a prática de técnicas de aprendizagem de máquina em um dataset contendo dados métricas de software de projetos open source. Para realização do experimento foi utilizada a Linguagem R juntamente do auxilio de algumas bibliotecas disponíveis no repositório [RCRAN] (https://cran.r-project.org/). 
 
@@ -385,6 +387,8 @@ Segue abaixo um gráfico de barras contendo os resultados descritos na tabela ac
 
 Um finding que deve ser ressaltado é de que utilizando a técnica de seleção de features, alguns algoritmos tiveram seus resultados melhorados em relação aos resultados anteriores (sem a técnica). Curiosamente, os algoritmos que tiveram um ligeira melhora são as técnicas relacionadas a árvore de decisão, porém os outros algoritmos como SVM e NaiveBayes tiveram um pequena redução da efetividade em termos gerais.
 
+Essa pequena melhoria relacionada as técnicas baseadas em árvores está diretamente ligadadas as mesmas utilizaram ganho de informação (entropia) dentro dos seus algoritmos durante a fase de treinamento.
+
 ```{r}
 ggplot(resultsFeatures) +
   geom_bar(aes(x = Algorithm, y = F.Measure, fill = Project, group = Project), position = "dodge", stat = "identity") +
@@ -398,7 +402,7 @@ ggplot(resultsFeatures) +
 
 Técnicas de predição de bugs são de grande importância na área de engenharia de software, visto que podem levar a uma diminuição de custos e esforços por desenvolvedores, gerentes e envolvidos no ciclo de desenvolvimento. O presente trabalho procurou avaliar diferentes algoritmos de aprendizagem de máquina em métricas de software presentes em funções da linguagem C em 5 projetos. 
 
-Os resultados relevam que o modelo que utiliza o algoritmo *Ramdom Forest* teve foi mais eficiente dentre os projetos analisados. Esses resultados se assemelham a trabalhos anteriores presentes na literatura [1] que também utilizam métricas de software como input. Já em relação aos resultados dos algoritmos entre utilizando técnicas de seleção obtivemos uma ligeira melhora nos algoritmos que estão relacionados a técnica de arvores de decisão.
+Os resultados relevam que o modelo *Ramdom Forest* superou os demais dentre os projetos analisados. Esses resultados são similares a trabalhos anteriores presentes na literatura [1] que também utilizam métricas de software como input. Já em relação aos resultados dos algoritmos entre utilizando técnicas de seleção obtivemos uma ligeira melhora nos algoritmos que estão relacionados a técnica de arvores de decisão.
 
 
 ### Referências
